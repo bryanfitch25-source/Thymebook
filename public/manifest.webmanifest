@@ -1,0 +1,14 @@
+{
+  "name": "Thymebook",
+  "short_name": "Thymebook",
+  "description": "Shared family recipe book, shopping list, and meal planner.",
+  "start_url": "/Thymebook/",
+  "scope": "/Thymebook/",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#2f6fed",
+  "icons": [
+    { "src": "/Thymebook/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/Thymebook/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
