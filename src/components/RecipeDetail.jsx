@@ -2,6 +2,13 @@ import { useMemo, useState } from "react";
 import { exportRecipeAsMarkdown } from "../exportImport";
 import { scaleIngredientLine } from "../ingredientScale";
 
+function locationBadgeLabel(location) {
+  if (location === "home") return "🏠 Home";
+  if (location === "work") return "💼 Work";
+  if (location === "both") return "🏠💼 Both";
+  return "";
+}
+
 export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggleFavorite, onDuplicate, onCookMode, onAddToShoppingList }) {
   const baseServings = useMemo(() => {
     const n = parseFloat(recipe.servings);
@@ -30,6 +37,7 @@ export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggl
 
       <div className="recipe-title-row">
         <h1>{recipe.title}</h1>
+        {recipe.location && <span className={`location-badge location-${recipe.location}`}>{locationBadgeLabel(recipe.location)}</span>}
         <button
           className={`star-toggle star-toggle-lg no-print ${recipe.favorite ? "active" : ""}`}
           aria-label={recipe.favorite ? "Remove from favorites" : "Add to favorites"}

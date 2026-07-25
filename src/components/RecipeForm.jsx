@@ -45,9 +45,17 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
       notes: form.notes,
       photo: form.photo || null,
       favorite: Boolean(form.favorite),
+      location: form.location || "",
       updatedAt: new Date().toISOString(),
     });
   }
+
+  const locationOptions = [
+    { value: "", label: "—" },
+    { value: "home", label: "Home" },
+    { value: "work", label: "Work" },
+    { value: "both", label: "Both" },
+  ];
 
   return (
     <form className="recipe-form" onSubmit={handleSubmit}>
@@ -91,6 +99,23 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
           <input type="text" value={form.servings} onChange={(e) => set("servings", e.target.value)} placeholder="4" />
         </label>
       </div>
+
+      <label>
+        Home / Work
+        <div className="segmented-control" role="group" aria-label="Home or work recipe">
+          {locationOptions.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`segmented-option ${form.location === opt.value ? "active" : ""}`}
+              onClick={() => set("location", opt.value)}
+              aria-pressed={form.location === opt.value}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </label>
 
       <label>
         Tags <span className="hint">(comma-separated)</span>

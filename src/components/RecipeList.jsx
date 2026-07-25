@@ -1,3 +1,10 @@
+function locationBadgeLabel(location) {
+  if (location === "home") return "🏠 Home";
+  if (location === "work") return "💼 Work";
+  if (location === "both") return "🏠💼 Both";
+  return "";
+}
+
 export default function RecipeList({
   recipes,
   search,
@@ -7,6 +14,8 @@ export default function RecipeList({
   allTags,
   favoritesOnly,
   onToggleFavoritesOnly,
+  locationFilter,
+  onLocationFilterChange,
   sortBy,
   onSortChange,
   onOpen,
@@ -42,6 +51,23 @@ export default function RecipeList({
         >
           ★ Favorites only
         </button>
+
+        <div className="location-filter-group" role="group" aria-label="Filter by home or work">
+          {[
+            { value: null, label: "Anywhere" },
+            { value: "home", label: "🏠 Home" },
+            { value: "work", label: "💼 Work" },
+          ].map((opt) => (
+            <button
+              key={opt.label}
+              className={`tag-filter ${locationFilter === opt.value ? "active" : ""}`}
+              onClick={() => onLocationFilterChange(locationFilter === opt.value ? null : opt.value)}
+              aria-pressed={locationFilter === opt.value}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
         <label className="sort-control">
           Sort
@@ -86,6 +112,7 @@ export default function RecipeList({
               <div className="recipe-card-body">
                 <div className="recipe-card-title-row">
                   <h3>{r.title}</h3>
+                  {r.location && <span className={`location-badge location-${r.location}`}>{locationBadgeLabel(r.location)}</span>}
                   <button
                     className={`star-toggle ${r.favorite ? "active" : ""}`}
                     aria-label={r.favorite ? "Remove from favorites" : "Add to favorites"}

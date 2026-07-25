@@ -1,11 +1,14 @@
 const STORAGE_KEY = "thymebook:recipes";
 
+const VALID_LOCATIONS = new Set(["home", "work", "both", ""]);
+
 export function normalizeRecipe(recipe) {
   return {
     ...recipe,
     tags: Array.isArray(recipe.tags) ? recipe.tags : [],
     photo: typeof recipe.photo === "string" ? recipe.photo : null,
     favorite: Boolean(recipe.favorite),
+    location: VALID_LOCATIONS.has(recipe.location) ? recipe.location : "",
   };
 }
 
@@ -43,6 +46,7 @@ export function emptyRecipe() {
     notes: "",
     photo: null,
     favorite: false,
+    location: "",
     createdAt: now,
     updatedAt: now,
   };
