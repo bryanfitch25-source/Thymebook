@@ -1,11 +1,20 @@
 const STORAGE_KEY = "thymebook:recipes";
 
+export function normalizeRecipe(recipe) {
+  return {
+    ...recipe,
+    tags: Array.isArray(recipe.tags) ? recipe.tags : [],
+    photo: typeof recipe.photo === "string" ? recipe.photo : null,
+    favorite: Boolean(recipe.favorite),
+  };
+}
+
 export function loadRecipes() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeRecipe) : [];
   } catch {
     return [];
   }
@@ -32,6 +41,8 @@ export function emptyRecipe() {
     ingredients: "",
     instructions: "",
     notes: "",
+    photo: null,
+    favorite: false,
     createdAt: now,
     updatedAt: now,
   };

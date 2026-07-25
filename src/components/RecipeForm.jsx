@@ -1,13 +1,28 @@
 import { useState } from "react";
+import { compressImageFile } from "../imageUtils";
 
 export default function RecipeForm({ recipe, onSave, onCancel }) {
   const [form, setForm] = useState({
     ...recipe,
     tagsText: (recipe.tags || []).join(", "),
   });
+  const [photoError, setPhotoError] = useState("");
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function handlePhotoChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoError("");
+    try {
+      const dataUrl = await compressImageFile(file);
+      set("photo", dataUrl);
+    } catch {
+      setPhotoError("Couldn't load that image — try a different file.");
+    }
   }
 
   function handleSubmit(e) {
@@ -28,6 +43,8 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
       ingredients: form.ingredients,
       instructions: form.instructions,
       notes: form.notes,
+      photo: form.photo || null,
+      favorite: Boolean(form.favorite),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -45,6 +62,20 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
           required
         />
       </label>
+
+      <label>
+        Photo <span className="hint">(optional)</span>
+        <input type="file" accept="image/*" onChange={handlePhotoChange} />
+      </label>
+      {photoError && <p className="form-error">{photoError}</p>}
+      {form.photo && (
+        <div className="photo-preview-row">
+          <img className="photo-preview" src={form.photo} alt="Recipe preview" />
+          <button type="button" className="btn" onClick={() => set("photo", null)}>
+            Remove photo
+          </button>
+        </div>
+      )}
 
       <div className="form-row">
         <label>
@@ -94,6 +125,11 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
       <label>
         Notes
         <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={4} placeholder="Substitutions, tips, variations..." />
+      </label>
+
+      <label className="checkbox-label">
+        <input type="checkbox" checked={Boolean(form.favorite)} onChange={(e) => set("favorite", e.target.checked)} />
+        Mark as favorite
       </label>
 
       <div className="form-actions">

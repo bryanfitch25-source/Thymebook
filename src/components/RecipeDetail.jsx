@@ -1,16 +1,43 @@
+import { useMemo, useState } from "react";
 import { exportRecipeAsMarkdown } from "../exportImport";
+import { scaleIngredientLine } from "../ingredientScale";
 
-export default function RecipeDetail({ recipe, onEdit, onDelete, onBack }) {
+export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggleFavorite, onDuplicate, onCookMode }) {
+  const baseServings = useMemo(() => {
+    const n = parseFloat(recipe.servings);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  }, [recipe.servings]);
+
+  const [servings, setServings] = useState(baseServings);
+
   const ingredients = recipe.ingredients.split("\n").map((l) => l.trim()).filter(Boolean);
   const steps = recipe.instructions.split("\n").map((l) => l.trim()).filter(Boolean);
 
+  const factor = servings / baseServings;
+  const scaledIngredients = factor === 1 ? ingredients : ingredients.map((line) => scaleIngredientLine(line, factor));
+
+  function adjustServings(delta) {
+    setServings((s) => Math.max(1, Math.round((s + delta) * 100) / 100));
+  }
+
   return (
     <div className="recipe-detail">
-      <button className="btn btn-link" onClick={onBack}>
+      <button className="btn btn-link no-print" onClick={onBack}>
         ← Back
       </button>
 
-      <h1>{recipe.title}</h1>
+      {recipe.photo && <img className="recipe-detail-photo" src={recipe.photo} alt="" />}
+
+      <div className="recipe-title-row">
+        <h1>{recipe.title}</h1>
+        <button
+          className={`star-toggle star-toggle-lg no-print ${recipe.favorite ? "active" : ""}`}
+          aria-label={recipe.favorite ? "Remove from favorites" : "Add to favorites"}
+          onClick={onToggleFavorite}
+        >
+          {recipe.favorite ? "★" : "☆"}
+        </button>
+      </div>
 
       <div className="recipe-meta">
         {recipe.prepTime && <span>Prep: {recipe.prepTime}</span>}
@@ -28,18 +55,20 @@ export default function RecipeDetail({ recipe, onEdit, onDelete, onBack }) {
         </div>
       )}
 
-      {recipe.source && (
-        <p className="recipe-source">
-          Source: {recipe.source}
-        </p>
-      )}
+      {recipe.source && <p className="recipe-source">Source: {recipe.source}</p>}
 
-      <div className="recipe-actions">
+      <div className="recipe-actions no-print">
         <button className="btn" onClick={onEdit}>
           Edit
         </button>
+        <button className="btn" onClick={onDuplicate}>
+          Duplicate
+        </button>
         <button className="btn" onClick={() => exportRecipeAsMarkdown(recipe)}>
           Export as text
+        </button>
+        <button className="btn btn-primary" onClick={onCookMode}>
+          👨‍🍳 Cook mode
         </button>
         <button className="btn btn-danger" onClick={onDelete}>
           Delete
@@ -48,9 +77,31 @@ export default function RecipeDetail({ recipe, onEdit, onDelete, onBack }) {
 
       {ingredients.length > 0 && (
         <section>
-          <h2>Ingredients</h2>
+          <div className="ingredients-header">
+            <h2>Ingredients</h2>
+            <div className="servings-scaler no-print">
+              <span>Servings</span>
+              <button type="button" className="stepper-btn" onClick={() => adjustServings(-1)} aria-label="Fewer servings">
+                −
+              </button>
+              <input
+                className="servings-input"
+                type="number"
+                min="1"
+                step="1"
+                value={servings}
+                onChange={(e) => {
+                  const n = parseFloat(e.target.value);
+                  if (Number.isFinite(n) && n > 0) setServings(n);
+                }}
+              />
+              <button type="button" className="stepper-btn" onClick={() => adjustServings(1)} aria-label="More servings">
+                +
+              </button>
+            </div>
+          </div>
           <ul className="ingredient-list">
-            {ingredients.map((line, i) => (
+            {scaledIngredients.map((line, i) => (
               <li key={i}>{line}</li>
             ))}
           </ul>
