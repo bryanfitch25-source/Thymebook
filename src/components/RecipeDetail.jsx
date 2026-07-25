@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { exportRecipeAsMarkdown } from "../exportImport";
 import { scaleIngredientLine } from "../ingredientScale";
 
-export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggleFavorite, onDuplicate, onCookMode }) {
+export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggleFavorite, onDuplicate, onCookMode, onAddToShoppingList }) {
   const baseServings = useMemo(() => {
     const n = parseFloat(recipe.servings);
     return Number.isFinite(n) && n > 0 ? n : 1;
@@ -69,6 +69,9 @@ export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggl
         </button>
         <button className="btn btn-primary" onClick={onCookMode}>
           👨‍🍳 Cook mode
+        </button>
+        <button className="btn" onClick={() => onAddToShoppingList(servings)}>
+          🛒 Add to shopping list
         </button>
         <button className="btn btn-danger" onClick={onDelete}>
           Delete
