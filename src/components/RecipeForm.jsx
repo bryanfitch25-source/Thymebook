@@ -46,6 +46,7 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
       photo: form.photo || null,
       favorite: Boolean(form.favorite),
       location: form.location || "",
+      needsThaw: Boolean(form.needsThaw),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -155,6 +156,11 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
       <label className="checkbox-label">
         <input type="checkbox" checked={Boolean(form.favorite)} onChange={(e) => set("favorite", e.target.checked)} />
         Mark as favorite
+      </label>
+
+      <label className="checkbox-label">
+        <input type="checkbox" checked={Boolean(form.needsThaw)} onChange={(e) => set("needsThaw", e.target.checked)} />
+        🧊 Contains frozen protein — remind me to thaw it
       </label>
 
       <div className="form-actions">

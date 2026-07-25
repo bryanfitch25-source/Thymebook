@@ -11,6 +11,7 @@ export function normalizeRecipe(recipe) {
     photo: typeof recipe.photo === "string" ? recipe.photo : null,
     favorite: Boolean(recipe.favorite),
     location: VALID_LOCATIONS.has(recipe.location) ? recipe.location : "",
+    needsThaw: Boolean(recipe.needsThaw),
   };
 }
 
@@ -34,6 +35,7 @@ export function emptyRecipe() {
     photo: null,
     favorite: false,
     location: "",
+    needsThaw: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -56,6 +58,7 @@ function rowToRecipe(row) {
     photo: row.photo ?? null,
     favorite: Boolean(row.favorite),
     location: row.location || "",
+    needsThaw: Boolean(row.needs_thaw),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
@@ -76,6 +79,7 @@ function recipeToRow(recipe) {
     photo: recipe.photo ?? null,
     favorite: Boolean(recipe.favorite),
     location: recipe.location || "",
+    needs_thaw: Boolean(recipe.needsThaw),
     created_at: recipe.createdAt || new Date().toISOString(),
     updated_at: recipe.updatedAt || new Date().toISOString(),
   };

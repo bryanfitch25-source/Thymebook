@@ -38,6 +38,7 @@ export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggl
       <div className="recipe-title-row">
         <h1>{recipe.title}</h1>
         {recipe.location && <span className={`location-badge location-${recipe.location}`}>{locationBadgeLabel(recipe.location)}</span>}
+        {recipe.needsThaw && <span className="location-badge thaw-badge">🧊 Needs thaw</span>}
         <button
           className={`star-toggle star-toggle-lg no-print ${recipe.favorite ? "active" : ""}`}
           aria-label={recipe.favorite ? "Remove from favorites" : "Add to favorites"}

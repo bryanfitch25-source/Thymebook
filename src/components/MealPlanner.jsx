@@ -1,10 +1,21 @@
 import { useState } from "react";
 import { DAYS } from "../mealPlan";
+import { LEAD_HOUR_OPTIONS } from "../reminders";
 
-export default function MealPlanner({ plan, recipes, onAssign, onRemove, onClear, onGenerateShoppingList, onBack }) {
+export default function MealPlanner({ plan, recipes, onAssign, onRemove, onClear, onGenerateShoppingList, onSetThawReminder, onBack }) {
   const [pendingDay, setPendingDay] = useState(null);
   const [pendingRecipeId, setPendingRecipeId] = useState("");
   const [pendingServings, setPendingServings] = useState("");
+  const [thawPickerFor, setThawPickerFor] = useState(null); // assignment id
+
+  function recipeFor(assignment) {
+    return recipes.find((r) => r.id === assignment.recipeId);
+  }
+
+  function confirmThawReminder(day, assignment, leadHours) {
+    onSetThawReminder(day, assignment, leadHours);
+    setThawPickerFor(null);
+  }
 
   const sortedRecipes = recipes.slice().sort((a, b) => a.title.localeCompare(b.title));
 
@@ -58,16 +69,45 @@ export default function MealPlanner({ plan, recipes, onAssign, onRemove, onClear
             <div className="planner-day" key={day}>
               <h2>{day}</h2>
               <ul className="planner-assignments">
-                {plan.days[day].map((a) => (
-                  <li key={a.id}>
-                    <span>
-                      {a.recipeTitle} <span className="shopping-source-servings">({a.servings} servings)</span>
-                    </span>
-                    <button className="btn-close no-print" aria-label={`Remove ${a.recipeTitle}`} onClick={() => onRemove(day, a.id)}>
-                      ×
-                    </button>
-                  </li>
-                ))}
+                {plan.days[day].map((a) => {
+                  const recipe = recipeFor(a);
+                  return (
+                    <li key={a.id} className="planner-assignment-item">
+                      <div className="planner-assignment-row">
+                        <span>
+                          {a.recipeTitle} <span className="shopping-source-servings">({a.servings} servings)</span>
+                        </span>
+                        <button className="btn-close no-print" aria-label={`Remove ${a.recipeTitle}`} onClick={() => onRemove(day, a.id)}>
+                          ×
+                        </button>
+                      </div>
+
+                      {recipe?.needsThaw && (
+                        <div className="no-print thaw-reminder-row">
+                          {thawPickerFor === a.id ? (
+                            <div className="thaw-picker">
+                              <span className="hint">Remind me before ~6pm {day}:</span>
+                              <div className="thaw-picker-options">
+                                {LEAD_HOUR_OPTIONS.map((h) => (
+                                  <button key={h} type="button" className="btn" onClick={() => confirmThawReminder(day, a, h)}>
+                                    {h}h before
+                                  </button>
+                                ))}
+                                <button type="button" className="btn btn-link" onClick={() => setThawPickerFor(null)}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button type="button" className="btn btn-link thaw-btn" onClick={() => setThawPickerFor(a.id)}>
+                              🧊 Set thaw reminder
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
 
               {pendingDay === day ? (

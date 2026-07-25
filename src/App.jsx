@@ -31,6 +31,21 @@ import {
   clearMealPlan,
 } from "./mealPlan";
 import { loadMeals, saveMeals, subscribeMeals, createMeal, addMeal, removeMeal } from "./meals";
+import {
+  fetchReminders,
+  subscribeReminders,
+  createReminder,
+  cancelReminder,
+  deleteReminder,
+  computeMealPlanReminderTime,
+} from "./reminders";
+import {
+  isPushSupported,
+  notificationPermission,
+  subscribeToPush,
+  getCurrentSubscriptionStatus,
+  registerServiceWorker,
+} from "./push/pushSubscribe";
 import Login from "./components/Login";
 import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
@@ -40,6 +55,7 @@ import QuickCapture from "./components/QuickCapture";
 import ShoppingList from "./components/ShoppingList";
 import MealPlanner from "./components/MealPlanner";
 import Meals from "./components/Meals";
+import Reminders from "./components/Reminders";
 import Toast from "./components/Toast";
 import "./App.css";
 
@@ -80,6 +96,10 @@ export default function App() {
   const [staples, setStaples] = useState([]);
   const [mealPlan, setMealPlan] = useState(null);
   const [meals, setMeals] = useState([]);
+  const [reminders, setReminders] = useState([]);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushPermission, setPushPermission] = useState("default");
+  const [pushSubscribed, setPushSubscribed] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef(null);
@@ -112,6 +132,32 @@ export default function App() {
     supabase.auth.signOut();
   }
 
+  // --- Push notification support/registration -----------------------------
+
+  useEffect(() => {
+    const supported = isPushSupported();
+    setPushSupported(supported);
+    if (!supported) return;
+    setPushPermission(notificationPermission());
+    registerServiceWorker().catch((err) => console.error("Service worker registration failed", err));
+    getCurrentSubscriptionStatus().then((status) => setPushSubscribed(status.subscribed));
+  }, []);
+
+  async function handleSubscribePush() {
+    const result = await subscribeToPush();
+    setPushPermission(notificationPermission());
+    if (result.ok) {
+      setPushSubscribed(true);
+      showToast("Notifications enabled on this device");
+    } else if (result.reason === "permission-denied") {
+      showToast("Notification permission was denied");
+    } else if (result.reason === "not-supported") {
+      showToast("This browser doesn't support push notifications");
+    } else {
+      showError("Couldn't enable notifications", result.error);
+    }
+  }
+
   // --- Initial data load + realtime subscriptions ------------------------
 
   useEffect(() => {
@@ -120,14 +166,15 @@ export default function App() {
     setDataLoading(true);
     setDataError("");
 
-    Promise.all([fetchRecipes(), loadShoppingList(), loadStaples(), loadMealPlan(), loadMeals()])
-      .then(([r, sl, st, mp, ml]) => {
+    Promise.all([fetchRecipes(), loadShoppingList(), loadStaples(), loadMealPlan(), loadMeals(), fetchReminders()])
+      .then(([r, sl, st, mp, ml, rem]) => {
         if (cancelled) return;
         setRecipes(r);
         setShoppingList(sl);
         setStaples(st);
         setMealPlan(mp);
         setMeals(ml);
+        setReminders(rem);
       })
       .catch((err) => {
         if (!cancelled) showError("Couldn't load your data", err);
@@ -145,6 +192,13 @@ export default function App() {
     const unsubStaples = subscribeStaples((data) => setStaples(data));
     const unsubMealPlan = subscribeMealPlan((data) => setMealPlan(data));
     const unsubMeals = subscribeMeals((data) => setMeals(data));
+    const unsubReminders = subscribeReminders((eventType, payload) => {
+      setReminders((current) => {
+        if (eventType === "DELETE") return current.filter((r) => r.id !== payload.id);
+        const exists = current.some((r) => r.id === payload.id);
+        return exists ? current.map((r) => (r.id === payload.id ? payload : r)) : [payload, ...current];
+      });
+    });
 
     return () => {
       cancelled = true;
@@ -153,6 +207,7 @@ export default function App() {
       unsubStaples();
       unsubMealPlan();
       unsubMeals();
+      unsubReminders();
     };
   }, [session]);
 
@@ -186,6 +241,42 @@ export default function App() {
   function handleAssignMealToDay(meal, day) {
     persistMealPlan(assignMeal(mealPlan, day, meal, recipes));
     showToast(`Assigned "${meal.name}" to ${day}`);
+  }
+
+  // --- Reminders ------------------------------------------------------------
+
+  function handleSetThawReminder(day, assignment, leadHours) {
+    const remindAt = computeMealPlanReminderTime(day, leadHours);
+    if (!remindAt) return;
+    createReminder({
+      recipeId: assignment.recipeId,
+      label: `Thaw ${assignment.recipeTitle} for ${day}`,
+      remindAt,
+      leadHours,
+      source: "mealplan",
+    })
+      .then((reminder) => setReminders((current) => [reminder, ...current]))
+      .catch((err) => showError("Couldn't create the thaw reminder", err));
+    showToast(`Thaw reminder set for ${leadHours}h before ~6pm ${day}`);
+  }
+
+  function handleCreateStandaloneReminder({ label, recipeId, remindAt }) {
+    createReminder({ recipeId, label, remindAt, leadHours: 0, source: "manual" })
+      .then((reminder) => {
+        setReminders((current) => [reminder, ...current]);
+        showToast("Reminder created");
+      })
+      .catch((err) => showError("Couldn't create the reminder", err));
+  }
+
+  function handleCancelReminder(id) {
+    setReminders((current) => current.map((r) => (r.id === id ? { ...r, status: "cancelled" } : r)));
+    cancelReminder(id).catch((err) => showError("Couldn't cancel the reminder", err));
+  }
+
+  function handleDeleteReminder(id) {
+    setReminders((current) => current.filter((r) => r.id !== id));
+    deleteReminder(id).catch((err) => showError("Couldn't delete the reminder", err));
   }
 
   // --- Shopping list / staples / meal plan ---------------------------------
@@ -399,6 +490,7 @@ export default function App() {
     { key: "shopping", label: "Shopping", icon: "🛒", active: view === "shopping" },
     { key: "mealplan", label: "Meal Plan", icon: "📅", active: view === "mealplan" },
     { key: "meals", label: "Meals", icon: "🍽️", active: view === "meals" },
+    { key: "reminders", label: "Reminders", icon: "🧊", active: view === "reminders" },
   ];
 
   function goTo(key) {
@@ -595,6 +687,7 @@ export default function App() {
             onRemove={(day, assignmentId) => persistMealPlan(removeAssignment(mealPlan, day, assignmentId))}
             onClear={() => persistMealPlan(clearMealPlan())}
             onGenerateShoppingList={handleGenerateShoppingListFromPlan}
+            onSetThawReminder={handleSetThawReminder}
             onBack={() => setView("list")}
           />
         )}
@@ -607,6 +700,21 @@ export default function App() {
             onDelete={handleDeleteMeal}
             onAddToShoppingList={handleAddMealToShoppingList}
             onAssignToDay={handleAssignMealToDay}
+          />
+        )}
+
+        {view === "reminders" && (
+          <Reminders
+            reminders={reminders}
+            recipes={recipes}
+            pushSupported={pushSupported}
+            pushPermission={pushPermission}
+            pushSubscribed={pushSubscribed}
+            onSubscribe={handleSubscribePush}
+            onCreateStandalone={handleCreateStandaloneReminder}
+            onCancel={handleCancelReminder}
+            onDelete={handleDeleteReminder}
+            onBack={() => setView("list")}
           />
         )}
       </main>
