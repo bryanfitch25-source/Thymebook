@@ -1,4 +1,6 @@
-const STORAGE_KEY = "thymebook:recipes";
+import { supabase } from "./supabaseClient";
+
+const TABLE = "recipes";
 
 const VALID_LOCATIONS = new Set(["home", "work", "both", ""]);
 
@@ -10,21 +12,6 @@ export function normalizeRecipe(recipe) {
     favorite: Boolean(recipe.favorite),
     location: VALID_LOCATIONS.has(recipe.location) ? recipe.location : "",
   };
-}
-
-export function loadRecipes() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(normalizeRecipe) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveRecipes(recipes) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
 }
 
 export function newRecipeId() {
@@ -49,5 +36,91 @@ export function emptyRecipe() {
     location: "",
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+// --- Supabase <-> app shape mapping -----------------------------------------
+
+function rowToRecipe(row) {
+  return normalizeRecipe({
+    id: row.id,
+    title: row.title || "",
+    tags: row.tags || [],
+    prepTime: row.prep_time || "",
+    cookTime: row.cook_time || "",
+    servings: row.servings || "",
+    source: row.source || "",
+    ingredients: row.ingredients || "",
+    instructions: row.instructions || "",
+    notes: row.notes || "",
+    photo: row.photo ?? null,
+    favorite: Boolean(row.favorite),
+    location: row.location || "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+function recipeToRow(recipe) {
+  return {
+    id: recipe.id,
+    title: recipe.title || "",
+    tags: Array.isArray(recipe.tags) ? recipe.tags : [],
+    prep_time: recipe.prepTime || "",
+    cook_time: recipe.cookTime || "",
+    servings: recipe.servings || "",
+    source: recipe.source || "",
+    ingredients: recipe.ingredients || "",
+    instructions: recipe.instructions || "",
+    notes: recipe.notes || "",
+    photo: recipe.photo ?? null,
+    favorite: Boolean(recipe.favorite),
+    location: recipe.location || "",
+    created_at: recipe.createdAt || new Date().toISOString(),
+    updated_at: recipe.updatedAt || new Date().toISOString(),
+  };
+}
+
+// --- Supabase-backed persistence ---------------------------------------------
+
+export async function fetchRecipes() {
+  const { data, error } = await supabase.from(TABLE).select("*").order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(rowToRecipe);
+}
+
+export async function upsertRecipe(recipe) {
+  const { error } = await supabase.from(TABLE).upsert(recipeToRow(recipe), { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function upsertRecipes(recipes) {
+  if (!recipes.length) return;
+  const { error } = await supabase.from(TABLE).upsert(recipes.map(recipeToRow), { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function deleteRecipeRemote(id) {
+  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Subscribes to realtime changes on the recipes table. `onChange` is called
+// with (eventType, recipe) for INSERT/UPDATE, or (eventType, { id }) for
+// DELETE. Returns an unsubscribe function.
+export function subscribeRecipes(onChange) {
+  const channel = supabase
+    .channel("recipes-changes")
+    .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, (payload) => {
+      if (payload.eventType === "DELETE") {
+        onChange("DELETE", { id: payload.old?.id });
+      } else {
+        onChange(payload.eventType, rowToRecipe(payload.new));
+      }
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
   };
 }

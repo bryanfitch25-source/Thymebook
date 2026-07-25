@@ -1,4 +1,6 @@
-const PLAN_KEY = "thymebook:mealPlan";
+import { fetchDocument, saveDocument, subscribeDocument } from "./docStore";
+
+const PLAN_KEY = "meal_plan";
 
 export const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -14,25 +16,27 @@ export function emptyMealPlan() {
   return { days };
 }
 
-export function loadMealPlan() {
-  try {
-    const raw = localStorage.getItem(PLAN_KEY);
-    if (!raw) return emptyMealPlan();
-    const parsed = JSON.parse(raw);
-    const plan = emptyMealPlan();
-    if (parsed && typeof parsed.days === "object") {
-      DAYS.forEach((d) => {
-        if (Array.isArray(parsed.days[d])) plan.days[d] = parsed.days[d];
-      });
-    }
-    return plan;
-  } catch {
-    return emptyMealPlan();
+function normalizePlan(parsed) {
+  const plan = emptyMealPlan();
+  if (parsed && typeof parsed.days === "object") {
+    DAYS.forEach((d) => {
+      if (Array.isArray(parsed.days[d])) plan.days[d] = parsed.days[d];
+    });
   }
+  return plan;
 }
 
-export function saveMealPlan(plan) {
-  localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+export async function loadMealPlan() {
+  const data = await fetchDocument(PLAN_KEY, emptyMealPlan());
+  return normalizePlan(data);
+}
+
+export async function saveMealPlan(plan) {
+  await saveDocument(PLAN_KEY, plan);
+}
+
+export function subscribeMealPlan(onChange) {
+  return subscribeDocument(PLAN_KEY, (data) => onChange(normalizePlan(data)));
 }
 
 export function assignRecipe(plan, day, recipe, servings, mealMeta) {

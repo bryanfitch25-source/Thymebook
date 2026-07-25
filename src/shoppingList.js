@@ -1,7 +1,8 @@
 import { formatQuantity, normalizeIngredientName, parseIngredientLine, scaleIngredientLine, unitLabel } from "./ingredientScale";
+import { fetchDocument, saveDocument, subscribeDocument } from "./docStore";
 
-const LIST_KEY = "thymebook:shoppingList";
-const STAPLES_KEY = "thymebook:staples";
+const LIST_KEY = "shopping_list";
+const STAPLES_KEY = "staples";
 
 export const DEFAULT_STAPLES = [
   "salt",
@@ -29,41 +30,41 @@ export function emptyShoppingList() {
   };
 }
 
-export function loadShoppingList() {
-  try {
-    const raw = localStorage.getItem(LIST_KEY);
-    if (!raw) return emptyShoppingList();
-    const parsed = JSON.parse(raw);
-    return {
-      ...emptyShoppingList(),
-      ...parsed,
-      recipeEntries: Array.isArray(parsed.recipeEntries) ? parsed.recipeEntries : [],
-      manualItems: Array.isArray(parsed.manualItems) ? parsed.manualItems : [],
-      checked: parsed.checked && typeof parsed.checked === "object" ? parsed.checked : {},
-      staplesOverride: parsed.staplesOverride && typeof parsed.staplesOverride === "object" ? parsed.staplesOverride : {},
-    };
-  } catch {
-    return emptyShoppingList();
-  }
+function normalizeList(parsed) {
+  return {
+    ...emptyShoppingList(),
+    ...parsed,
+    recipeEntries: Array.isArray(parsed?.recipeEntries) ? parsed.recipeEntries : [],
+    manualItems: Array.isArray(parsed?.manualItems) ? parsed.manualItems : [],
+    checked: parsed?.checked && typeof parsed.checked === "object" ? parsed.checked : {},
+    staplesOverride: parsed?.staplesOverride && typeof parsed.staplesOverride === "object" ? parsed.staplesOverride : {},
+  };
 }
 
-export function saveShoppingList(list) {
-  localStorage.setItem(LIST_KEY, JSON.stringify(list));
+export async function loadShoppingList() {
+  const data = await fetchDocument(LIST_KEY, emptyShoppingList());
+  return normalizeList(data);
 }
 
-export function loadStaples() {
-  try {
-    const raw = localStorage.getItem(STAPLES_KEY);
-    if (!raw) return DEFAULT_STAPLES.slice();
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_STAPLES.slice();
-  } catch {
-    return DEFAULT_STAPLES.slice();
-  }
+export async function saveShoppingList(list) {
+  await saveDocument(LIST_KEY, list);
 }
 
-export function saveStaples(staples) {
-  localStorage.setItem(STAPLES_KEY, JSON.stringify(staples));
+export function subscribeShoppingList(onChange) {
+  return subscribeDocument(LIST_KEY, (data) => onChange(normalizeList(data)));
+}
+
+export async function loadStaples() {
+  const data = await fetchDocument(STAPLES_KEY, { items: DEFAULT_STAPLES.slice() });
+  return Array.isArray(data?.items) ? data.items : DEFAULT_STAPLES.slice();
+}
+
+export async function saveStaples(staples) {
+  await saveDocument(STAPLES_KEY, { items: staples });
+}
+
+export function subscribeStaples(onChange) {
+  return subscribeDocument(STAPLES_KEY, (data) => onChange(Array.isArray(data?.items) ? data.items : DEFAULT_STAPLES.slice()));
 }
 
 // Adds a recipe's ingredients (scaled to `servings`) as a new entry in the

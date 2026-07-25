@@ -1,16 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadRecipes, saveRecipes, emptyRecipe, normalizeRecipe, newRecipeId } from "./storage";
+import { supabase } from "./supabaseClient";
+import {
+  fetchRecipes,
+  upsertRecipe,
+  upsertRecipes,
+  deleteRecipeRemote,
+  subscribeRecipes,
+  emptyRecipe,
+  normalizeRecipe,
+  newRecipeId,
+} from "./storage";
 import { exportAllAsJson, parseImportedJson } from "./exportImport";
 import {
   loadShoppingList,
   saveShoppingList,
+  subscribeShoppingList,
   loadStaples,
   saveStaples,
+  subscribeStaples,
   addRecipeToShoppingList,
   clearShoppingList,
 } from "./shoppingList";
-import { loadMealPlan, saveMealPlan, assignRecipe, assignMeal, removeAssignment, clearMealPlan } from "./mealPlan";
-import { loadMeals, saveMeals, createMeal, addMeal, removeMeal } from "./meals";
+import {
+  loadMealPlan,
+  saveMealPlan,
+  subscribeMealPlan,
+  assignRecipe,
+  assignMeal,
+  removeAssignment,
+  clearMealPlan,
+} from "./mealPlan";
+import { loadMeals, saveMeals, subscribeMeals, createMeal, addMeal, removeMeal } from "./meals";
+import Login from "./components/Login";
 import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
 import RecipeForm from "./components/RecipeForm";
@@ -27,8 +48,24 @@ const UNDO_TIMEOUT = 6000;
 // Views that belong to the "Recipes" primary nav destination.
 const RECIPE_VIEWS = new Set(["list", "detail", "new", "edit", "cook", "capture"]);
 
+// Applies a single recipe insert/update to an array, used both for our own
+// optimistic writes and for realtime events (including echoes of our own
+// writes) - always an idempotent "replace by id" rather than a blind append.
+function applyRecipeUpsert(current, recipe) {
+  const exists = current.some((r) => r.id === recipe.id);
+  return exists ? current.map((r) => (r.id === recipe.id ? recipe : r)) : [recipe, ...current];
+}
+
+function applyRecipeDelete(current, id) {
+  return current.filter((r) => r.id !== id);
+}
+
 export default function App() {
-  const [recipes, setRecipes] = useState(() => loadRecipes());
+  const [session, setSession] = useState(undefined); // undefined = not checked yet, null = signed out
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState("");
+
+  const [recipes, setRecipes] = useState([]);
   const [view, setView] = useState("list"); // list | detail | new | edit | cook | capture | shopping | mealplan | meals
   const [activeId, setActiveId] = useState(null);
   const [newDraft, setNewDraft] = useState(null);
@@ -39,19 +76,91 @@ export default function App() {
   const [sortBy, setSortBy] = useState("updated"); // updated | title | created
   const [importMessage, setImportMessage] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null); // { recipe, index }
-  const [shoppingList, setShoppingList] = useState(() => loadShoppingList());
-  const [staples, setStaples] = useState(() => loadStaples());
-  const [mealPlan, setMealPlan] = useState(() => loadMealPlan());
-  const [meals, setMeals] = useState(() => loadMeals());
+  const [shoppingList, setShoppingList] = useState(null);
+  const [staples, setStaples] = useState([]);
+  const [mealPlan, setMealPlan] = useState(null);
+  const [meals, setMeals] = useState([]);
   const [toastMessage, setToastMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef(null);
   const undoTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
 
+  function showToast(message) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    toastTimerRef.current = setTimeout(() => setToastMessage(""), 3500);
+  }
+
+  function showError(prefix, err) {
+    console.error(prefix, err);
+    setDataError(`${prefix}: ${err?.message || "something went wrong talking to the server."}`);
+  }
+
+  // --- Auth -------------------------------------------------------------
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  function handleSignOut() {
+    setMenuOpen(false);
+    supabase.auth.signOut();
+  }
+
+  // --- Initial data load + realtime subscriptions ------------------------
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    setDataLoading(true);
+    setDataError("");
+
+    Promise.all([fetchRecipes(), loadShoppingList(), loadStaples(), loadMealPlan(), loadMeals()])
+      .then(([r, sl, st, mp, ml]) => {
+        if (cancelled) return;
+        setRecipes(r);
+        setShoppingList(sl);
+        setStaples(st);
+        setMealPlan(mp);
+        setMeals(ml);
+      })
+      .catch((err) => {
+        if (!cancelled) showError("Couldn't load your data", err);
+      })
+      .finally(() => {
+        if (!cancelled) setDataLoading(false);
+      });
+
+    const unsubRecipes = subscribeRecipes((eventType, payload) => {
+      setRecipes((current) =>
+        eventType === "DELETE" ? applyRecipeDelete(current, payload.id) : applyRecipeUpsert(current, payload)
+      );
+    });
+    const unsubShoppingList = subscribeShoppingList((data) => setShoppingList(data));
+    const unsubStaples = subscribeStaples((data) => setStaples(data));
+    const unsubMealPlan = subscribeMealPlan((data) => setMealPlan(data));
+    const unsubMeals = subscribeMeals((data) => setMeals(data));
+
+    return () => {
+      cancelled = true;
+      unsubRecipes();
+      unsubShoppingList();
+      unsubStaples();
+      unsubMealPlan();
+      unsubMeals();
+    };
+  }, [session]);
+
+  // --- Meals --------------------------------------------------------------
+
   function persistMeals(next) {
     setMeals(next);
-    saveMeals(next);
+    saveMeals(next).catch((err) => showError("Couldn't save meals", err));
   }
 
   function handleCreateMeal(name, entries) {
@@ -79,25 +188,21 @@ export default function App() {
     showToast(`Assigned "${meal.name}" to ${day}`);
   }
 
+  // --- Shopping list / staples / meal plan ---------------------------------
+
   function persistShoppingList(next) {
     setShoppingList(next);
-    saveShoppingList(next);
+    saveShoppingList(next).catch((err) => showError("Couldn't save the shopping list", err));
   }
 
   function persistStaples(next) {
     setStaples(next);
-    saveStaples(next);
+    saveStaples(next).catch((err) => showError("Couldn't save staples", err));
   }
 
   function persistMealPlan(next) {
     setMealPlan(next);
-    saveMealPlan(next);
-  }
-
-  function showToast(message) {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToastMessage(message);
-    toastTimerRef.current = setTimeout(() => setToastMessage(""), 3500);
+    saveMealPlan(next).catch((err) => showError("Couldn't save the meal plan", err));
   }
 
   function handleAddToShoppingList(recipe, servings) {
@@ -122,15 +227,15 @@ export default function App() {
     if (count > 0) showToast(`Added ${count} recipe${count === 1 ? "" : "s"} from this week's plan to the shopping list`);
   }
 
-  function persist(next) {
-    setRecipes(next);
-    saveRecipes(next);
+  // --- Recipes --------------------------------------------------------------
+
+  function persistRecipeUpsert(recipe) {
+    setRecipes((current) => applyRecipeUpsert(current, recipe));
+    upsertRecipe(recipe).catch((err) => showError("Couldn't save the recipe", err));
   }
 
   function handleSave(recipe) {
-    const exists = recipes.some((r) => r.id === recipe.id);
-    const next = exists ? recipes.map((r) => (r.id === recipe.id ? recipe : r)) : [recipe, ...recipes];
-    persist(next);
+    persistRecipeUpsert(recipe);
     setActiveId(recipe.id);
     setNewDraft(null);
     setView("detail");
@@ -142,7 +247,9 @@ export default function App() {
   }
 
   function handleToggleFavorite(id) {
-    persist(recipes.map((r) => (r.id === id ? { ...r, favorite: !r.favorite } : r)));
+    const recipe = recipes.find((r) => r.id === id);
+    if (!recipe) return;
+    persistRecipeUpsert({ ...recipe, favorite: !recipe.favorite });
   }
 
   function handleDuplicate(recipe) {
@@ -155,7 +262,7 @@ export default function App() {
       createdAt: now,
       updatedAt: now,
     };
-    persist([copy, ...recipes]);
+    persistRecipeUpsert(copy);
     setActiveId(copy.id);
     setView("edit");
   }
@@ -164,7 +271,8 @@ export default function App() {
     const index = recipes.findIndex((r) => r.id === id);
     if (index === -1) return;
     const recipe = recipes[index];
-    persist(recipes.filter((r) => r.id !== id));
+    setRecipes((current) => applyRecipeDelete(current, id));
+    deleteRecipeRemote(id).catch((err) => showError("Couldn't delete the recipe", err));
     setView("list");
     setActiveId(null);
 
@@ -176,13 +284,7 @@ export default function App() {
   function handleUndoDelete() {
     if (!pendingDelete) return;
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setRecipes((current) => {
-      const next = current.slice();
-      const insertAt = Math.min(pendingDelete.index, next.length);
-      next.splice(insertAt, 0, pendingDelete.recipe);
-      saveRecipes(next);
-      return next;
-    });
+    persistRecipeUpsert(pendingDelete.recipe);
     setPendingDelete(null);
   }
 
@@ -192,21 +294,24 @@ export default function App() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      try {
-        const imported = parseImportedJson(String(reader.result)).map(normalizeRecipe);
-        const byId = new Map(recipes.map((r) => [r.id, r]));
-        let added = 0;
-        let updated = 0;
-        imported.forEach((r) => {
-          if (byId.has(r.id)) updated++;
-          else added++;
-          byId.set(r.id, r);
-        });
-        persist(Array.from(byId.values()));
-        setImportMessage(`Imported ${added} new, updated ${updated} existing recipe${added + updated === 1 ? "" : "s"}.`);
-      } catch (err) {
-        setImportMessage(`Import failed: ${err.message}`);
-      }
+      (async () => {
+        try {
+          const imported = parseImportedJson(String(reader.result)).map(normalizeRecipe);
+          const byId = new Map(recipes.map((r) => [r.id, r]));
+          let added = 0;
+          let updated = 0;
+          imported.forEach((r) => {
+            if (byId.has(r.id)) updated++;
+            else added++;
+            byId.set(r.id, r);
+          });
+          setRecipes(Array.from(byId.values()));
+          await upsertRecipes(imported);
+          setImportMessage(`Imported ${added} new, updated ${updated} existing recipe${added + updated === 1 ? "" : "s"}.`);
+        } catch (err) {
+          setImportMessage(`Import failed: ${err.message}`);
+        }
+      })();
     };
     reader.readAsText(file);
   }
@@ -306,6 +411,20 @@ export default function App() {
     }
   }
 
+  // --- Render gates: auth check in flight, signed out, data loading -------
+
+  if (session === undefined) {
+    return <div className="app-loading-screen">Loading…</div>;
+  }
+
+  if (session === null) {
+    return <Login />;
+  }
+
+  if (dataLoading || !shoppingList || !mealPlan) {
+    return <div className="app-loading-screen">Loading your recipe book…</div>;
+  }
+
   return (
     <div className="app">
       <header className="app-header no-print">
@@ -342,6 +461,9 @@ export default function App() {
                 >
                   Import backup
                 </button>
+                <button className="app-menu-item" onClick={handleSignOut}>
+                  Sign out
+                </button>
               </div>
             )}
             <input ref={fileInputRef} type="file" accept="application/json" hidden onChange={handleImportFile} />
@@ -364,6 +486,15 @@ export default function App() {
           ))}
         </nav>
       </header>
+
+      {dataError && (
+        <div className="data-error-banner no-print">
+          {dataError}
+          <button className="btn-close" onClick={() => setDataError("")}>
+            ×
+          </button>
+        </div>
+      )}
 
       {importMessage && (
         <div className="import-banner no-print">

@@ -1,4 +1,6 @@
-const MEALS_KEY = "thymebook:meals";
+import { fetchDocument, saveDocument, subscribeDocument } from "./docStore";
+
+const MEALS_KEY = "meals";
 
 function newMealId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -6,29 +8,29 @@ function newMealId() {
 
 // A Meal is a named collection of recipes, each with its own chosen
 // servings: { id, name, createdAt, recipes: [{ recipeId, recipeTitle, servings }] }
-export function loadMeals() {
-  try {
-    const raw = localStorage.getItem(MEALS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((m) => m && typeof m === "object" && typeof m.id === "string")
-      .map((m) => ({
-        id: m.id,
-        name: typeof m.name === "string" ? m.name : "Untitled meal",
-        createdAt: m.createdAt || new Date().toISOString(),
-        recipes: Array.isArray(m.recipes)
-          ? m.recipes.filter((r) => r && typeof r.recipeId === "string")
-          : [],
-      }));
-  } catch {
-    return [];
-  }
+function normalizeMeals(parsed) {
+  const items = Array.isArray(parsed?.items) ? parsed.items : [];
+  return items
+    .filter((m) => m && typeof m === "object" && typeof m.id === "string")
+    .map((m) => ({
+      id: m.id,
+      name: typeof m.name === "string" ? m.name : "Untitled meal",
+      createdAt: m.createdAt || new Date().toISOString(),
+      recipes: Array.isArray(m.recipes) ? m.recipes.filter((r) => r && typeof r.recipeId === "string") : [],
+    }));
 }
 
-export function saveMeals(meals) {
-  localStorage.setItem(MEALS_KEY, JSON.stringify(meals));
+export async function loadMeals() {
+  const data = await fetchDocument(MEALS_KEY, { items: [] });
+  return normalizeMeals(data);
+}
+
+export async function saveMeals(meals) {
+  await saveDocument(MEALS_KEY, { items: meals });
+}
+
+export function subscribeMeals(onChange) {
+  return subscribeDocument(MEALS_KEY, (data) => onChange(normalizeMeals(data)));
 }
 
 export function createMeal(name, entries) {
