@@ -612,6 +612,119 @@
   display: block;
 }
 
+/* --- quick capture --- */
+
+.quick-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.capture-intro {
+  margin: -8px 0 0;
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.capture-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.capture-tab {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.capture-tab.active {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: var(--accent-bg);
+}
+
+.capture-tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.capture-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+}
+
+.capture-file-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.capture-status {
+  font-size: 13px;
+  opacity: 0.75;
+  margin: 0;
+}
+
+.mic-btn {
+  align-self: flex-start;
+}
+
+.mic-btn.recording {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(193, 69, 69, 0.09);
+}
+
+.recording-indicator {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.capture-textarea-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.capture-textarea {
+  font: inherit;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-h);
+  resize: vertical;
+}
+
+.capture-interim {
+  margin: -6px 0 0;
+  font-size: 13px;
+  opacity: 0.5;
+  font-style: italic;
+}
+
 /* --- toast --- */
 
 .toast {

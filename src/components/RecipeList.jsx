@@ -11,6 +11,7 @@ export default function RecipeList({
   onSortChange,
   onOpen,
   onNew,
+  onCapture,
   onToggleFavorite,
   onSurpriseMe,
 }) {
@@ -27,6 +28,9 @@ export default function RecipeList({
         />
         <button className="btn btn-primary" onClick={onNew}>
           + New recipe
+        </button>
+        <button className="btn" onClick={onCapture}>
+          📷 Scan a recipe
         </button>
       </div>
 

@@ -5,6 +5,7 @@ import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
 import RecipeForm from "./components/RecipeForm";
 import CookMode from "./components/CookMode";
+import QuickCapture from "./components/QuickCapture";
 import Toast from "./components/Toast";
 import "./App.css";
 
@@ -12,8 +13,9 @@ const UNDO_TIMEOUT = 6000;
 
 export default function App() {
   const [recipes, setRecipes] = useState(() => loadRecipes());
-  const [view, setView] = useState("list"); // list | detail | new | edit | cook
+  const [view, setView] = useState("list"); // list | detail | new | edit | cook | capture
   const [activeId, setActiveId] = useState(null);
+  const [newDraft, setNewDraft] = useState(null);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -33,7 +35,13 @@ export default function App() {
     const next = exists ? recipes.map((r) => (r.id === recipe.id ? recipe : r)) : [recipe, ...recipes];
     persist(next);
     setActiveId(recipe.id);
+    setNewDraft(null);
     setView("detail");
+  }
+
+  function handleParsedCapture(draft) {
+    setNewDraft({ ...emptyRecipe(), ...draft });
+    setView("new");
   }
 
   function handleToggleFavorite(id) {
@@ -158,6 +166,7 @@ export default function App() {
         document.getElementById("recipe-search-input")?.focus();
       } else if (e.key === "n") {
         e.preventDefault();
+        setNewDraft(null);
         setView("new");
       }
     }
@@ -208,7 +217,11 @@ export default function App() {
               setActiveId(id);
               setView("detail");
             }}
-            onNew={() => setView("new")}
+            onNew={() => {
+              setNewDraft(null);
+              setView("new");
+            }}
+            onCapture={() => setView("capture")}
             onToggleFavorite={handleToggleFavorite}
             onSurpriseMe={handleSurpriseMe}
           />
@@ -236,11 +249,22 @@ export default function App() {
         )}
 
         {view === "new" && (
-          <RecipeForm recipe={emptyRecipe()} onSave={handleSave} onCancel={() => setView("list")} />
+          <RecipeForm
+            recipe={newDraft || emptyRecipe()}
+            onSave={handleSave}
+            onCancel={() => {
+              setNewDraft(null);
+              setView("list");
+            }}
+          />
         )}
 
         {view === "edit" && activeRecipe && (
           <RecipeForm recipe={activeRecipe} onSave={handleSave} onCancel={() => setView("detail")} />
+        )}
+
+        {view === "capture" && (
+          <QuickCapture onParsed={handleParsedCapture} onCancel={() => setView("list")} />
         )}
       </main>
 
