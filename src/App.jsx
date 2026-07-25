@@ -9,7 +9,8 @@ import {
   addRecipeToShoppingList,
   clearShoppingList,
 } from "./shoppingList";
-import { loadMealPlan, saveMealPlan, assignRecipe, removeAssignment, clearMealPlan } from "./mealPlan";
+import { loadMealPlan, saveMealPlan, assignRecipe, assignMeal, removeAssignment, clearMealPlan } from "./mealPlan";
+import { loadMeals, saveMeals, createMeal, addMeal, removeMeal } from "./meals";
 import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
 import RecipeForm from "./components/RecipeForm";
@@ -17,29 +18,66 @@ import CookMode from "./components/CookMode";
 import QuickCapture from "./components/QuickCapture";
 import ShoppingList from "./components/ShoppingList";
 import MealPlanner from "./components/MealPlanner";
+import Meals from "./components/Meals";
 import Toast from "./components/Toast";
 import "./App.css";
 
 const UNDO_TIMEOUT = 6000;
 
+// Views that belong to the "Recipes" primary nav destination.
+const RECIPE_VIEWS = new Set(["list", "detail", "new", "edit", "cook", "capture"]);
+
 export default function App() {
   const [recipes, setRecipes] = useState(() => loadRecipes());
-  const [view, setView] = useState("list"); // list | detail | new | edit | cook | capture | shopping | mealplan
+  const [view, setView] = useState("list"); // list | detail | new | edit | cook | capture | shopping | mealplan | meals
   const [activeId, setActiveId] = useState(null);
   const [newDraft, setNewDraft] = useState(null);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [locationFilter, setLocationFilter] = useState(null); // null | "home" | "work"
   const [sortBy, setSortBy] = useState("updated"); // updated | title | created
   const [importMessage, setImportMessage] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null); // { recipe, index }
   const [shoppingList, setShoppingList] = useState(() => loadShoppingList());
   const [staples, setStaples] = useState(() => loadStaples());
   const [mealPlan, setMealPlan] = useState(() => loadMealPlan());
+  const [meals, setMeals] = useState(() => loadMeals());
   const [toastMessage, setToastMessage] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef(null);
   const undoTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
+
+  function persistMeals(next) {
+    setMeals(next);
+    saveMeals(next);
+  }
+
+  function handleCreateMeal(name, entries) {
+    const meal = createMeal(name, entries);
+    persistMeals(addMeal(meals, meal));
+    showToast(`Saved meal "${meal.name}"`);
+  }
+
+  function handleDeleteMeal(mealId) {
+    persistMeals(removeMeal(meals, mealId));
+  }
+
+  function handleAddMealToShoppingList(meal) {
+    let next = shoppingList;
+    meal.recipes.forEach((entry) => {
+      const recipe = recipes.find((r) => r.id === entry.recipeId);
+      if (recipe) next = addRecipeToShoppingList(next, recipe, entry.servings);
+    });
+    persistShoppingList(next);
+    showToast(`Added "${meal.name}" to the shopping list`);
+  }
+
+  function handleAssignMealToDay(meal, day) {
+    persistMealPlan(assignMeal(mealPlan, day, meal, recipes));
+    showToast(`Assigned "${meal.name}" to ${day}`);
+  }
 
   function persistShoppingList(next) {
     setShoppingList(next);
@@ -184,6 +222,7 @@ export default function App() {
     const filtered = recipes.filter((r) => {
       if (favoritesOnly && !r.favorite) return false;
       if (activeTag && !r.tags?.includes(activeTag)) return false;
+      if (locationFilter && r.location !== locationFilter && r.location !== "both") return false;
       if (!q) return true;
       const haystack = [r.title, r.ingredients, r.notes, ...(r.tags || [])].join(" ").toLowerCase();
       return haystack.includes(q);
@@ -198,7 +237,7 @@ export default function App() {
       sorted.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     }
     return sorted;
-  }, [recipes, search, activeTag, favoritesOnly, sortBy]);
+  }, [recipes, search, activeTag, favoritesOnly, locationFilter, sortBy]);
 
   function handleSurpriseMe() {
     if (filteredRecipes.length === 0) return;
@@ -208,6 +247,23 @@ export default function App() {
   }
 
   const activeRecipe = recipes.find((r) => r.id === activeId) || null;
+
+  // Close the "more actions" menu on outside click or Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDocClick(e) {
+      if (!e.target.closest?.(".app-menu-wrap")) setMenuOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   // Keyboard shortcuts on the list view: "/" focuses search, "n" opens the
   // new-recipe form. Ignored while typing into a form field.
@@ -233,27 +289,80 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [view]);
 
+  const navItems = [
+    { key: "list", label: "Recipes", icon: "📖", active: RECIPE_VIEWS.has(view) },
+    { key: "shopping", label: "Shopping", icon: "🛒", active: view === "shopping" },
+    { key: "mealplan", label: "Meal Plan", icon: "📅", active: view === "mealplan" },
+    { key: "meals", label: "Meals", icon: "🍽️", active: view === "meals" },
+  ];
+
+  function goTo(key) {
+    setMenuOpen(false);
+    if (key === "list") {
+      setActiveId(null);
+      setView("list");
+    } else {
+      setView(key);
+    }
+  }
+
   return (
     <div className="app">
       <header className="app-header no-print">
-        <h1 onClick={() => setView("list")} className="app-title">
-          🌿 Thymebook
-        </h1>
-        <div className="header-actions">
-          <button className="btn" onClick={() => setView("shopping")}>
-            🛒 Shopping list
-          </button>
-          <button className="btn" onClick={() => setView("mealplan")}>
-            📅 Meal plan
-          </button>
-          <button className="btn" onClick={() => exportAllAsJson(recipes)}>
-            Export backup
-          </button>
-          <button className="btn" onClick={() => fileInputRef.current?.click()}>
-            Import backup
-          </button>
-          <input ref={fileInputRef} type="file" accept="application/json" hidden onChange={handleImportFile} />
+        <div className="app-header-top">
+          <h1 onClick={() => goTo("list")} className="app-title">
+            🌿 Thymebook
+          </h1>
+          <div className="app-menu-wrap">
+            <button
+              className="btn app-menu-btn"
+              aria-label="More actions"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <div className="app-menu">
+                <button
+                  className="app-menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    exportAllAsJson(recipes);
+                  }}
+                >
+                  Export backup
+                </button>
+                <button
+                  className="app-menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  Import backup
+                </button>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" accept="application/json" hidden onChange={handleImportFile} />
+          </div>
         </div>
+
+        <nav className="main-nav" aria-label="Primary">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              className={`main-nav-item ${item.active ? "active" : ""}`}
+              onClick={() => goTo(item.key)}
+              aria-current={item.active ? "page" : undefined}
+            >
+              <span className="main-nav-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span className="main-nav-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
       </header>
 
       {importMessage && (
@@ -276,6 +385,8 @@ export default function App() {
             allTags={allTags}
             favoritesOnly={favoritesOnly}
             onToggleFavoritesOnly={() => setFavoritesOnly((v) => !v)}
+            locationFilter={locationFilter}
+            onLocationFilterChange={setLocationFilter}
             sortBy={sortBy}
             onSortChange={setSortBy}
             onOpen={(id) => {
@@ -354,6 +465,17 @@ export default function App() {
             onClear={() => persistMealPlan(clearMealPlan())}
             onGenerateShoppingList={handleGenerateShoppingListFromPlan}
             onBack={() => setView("list")}
+          />
+        )}
+
+        {view === "meals" && (
+          <Meals
+            meals={meals}
+            recipes={recipes}
+            onCreate={handleCreateMeal}
+            onDelete={handleDeleteMeal}
+            onAddToShoppingList={handleAddMealToShoppingList}
+            onAssignToDay={handleAssignMealToDay}
           />
         )}
       </main>
