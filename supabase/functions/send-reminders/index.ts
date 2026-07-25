@@ -14,11 +14,27 @@
 //
 // Required secrets (set with `supabase secrets set NAME=value`, or via the
 // Dashboard -> Edge Functions -> send-reminders -> Secrets UI):
-//   VAPID_PRIVATE_KEY   - the private half of the VAPID keypair. NEVER commit
-//                         this. The matching public key is hardcoded in the
-//                         client at src/push/vapidPublicKey.js.
-// Also relies on the two secrets every Edge Function gets automatically:
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+//   VAPID_PRIVATE_KEY    - the private half of the VAPID keypair. NEVER
+//                          commit this. The matching public key is
+//                          hardcoded in the client at
+//                          src/push/vapidPublicKey.js.
+//   PROJECT_SECRET_KEY   - this project's full-access key (Project Settings
+//                          -> API -> the "service_role" / "secret" key -
+//                          whichever label your project's API settings
+//                          page uses). Needed so this function can read
+//                          every pending reminder and every device's push
+//                          subscription regardless of the single shared
+//                          auth user, bypassing RLS. Set explicitly rather
+//                          than relying on the reserved SUPABASE_SERVICE_
+//                          ROLE_KEY env var Supabase auto-injects for
+//                          legacy-key-system projects - that auto-injection
+//                          isn't reliably populated for projects on the
+//                          newer publishable/secret key system, which is
+//                          what this project uses (its anon-equivalent key
+//                          is "sb_publishable_..."). NEVER commit this
+//                          value either.
+// SUPABASE_URL is still read from the reserved auto-injected env var - that
+// one's just a URL, not a secret, and is populated regardless of key system.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
@@ -28,7 +44,9 @@ const VAPID_PUBLIC_KEY =
 
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// Prefer the explicit PROJECT_SECRET_KEY; fall back to the reserved name in
+// case a future/different project setup does populate it after all.
+const PROJECT_SECRET_KEY = Deno.env.get("PROJECT_SECRET_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 if (VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails("mailto:bryanfitch25@gmail.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -42,8 +60,14 @@ Deno.serve(async (_req) => {
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
+    if (!PROJECT_SECRET_KEY) {
+      return new Response(
+        JSON.stringify({ error: "PROJECT_SECRET_KEY secret is not set on this function." }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(SUPABASE_URL, PROJECT_SECRET_KEY);
 
     const { data: dueReminders, error: remindersError } = await supabase
       .from("reminders")
