@@ -762,6 +762,239 @@
   }
 }
 
+/* --- shopping list & meal planner --- */
+
+.shopping-header,
+.recipe-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shopping-header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.shopping-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.shopping-list-view,
+.meal-planner-view {
+  text-align: left;
+}
+
+.shopping-list-view section,
+.meal-planner-view section {
+  margin-bottom: 24px;
+}
+
+.shopping-source-list,
+.staple-manage-list,
+.staple-excluded-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shopping-source-list li,
+.staple-manage-list li,
+.staple-excluded-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.shopping-source-servings {
+  opacity: 0.7;
+  font-size: 13px;
+}
+
+.shopping-list-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shopping-progress {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.shopping-items {
+  list-style: none;
+  margin: 12px 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shopping-items li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shopping-items label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.shopping-items input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.shopping-items label.checked {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.shopping-item-sources {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.shopping-add-form,
+.planner-add-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.shopping-add-form input,
+.planner-add-form select,
+.planner-add-form input {
+  font: inherit;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-h);
+}
+
+.shopping-add-form input {
+  flex: 1;
+}
+
+.hint-text {
+  font-size: 13px;
+  opacity: 0.7;
+  margin: 4px 0 0;
+}
+
+.staples-manager {
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+
+.planner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.planner-day {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.planner-day h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.planner-assignments {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planner-assignments li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  background: var(--accent-bg);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.planner-add-btn {
+  width: 100%;
+}
+
+.planner-add-form {
+  flex-direction: column;
+}
+
+.planner-add-form select {
+  width: 100%;
+}
+
+.planner-add-form .servings-input {
+  width: 100%;
+}
+
+.planner-add-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.planner-add-actions .btn {
+  flex: 1;
+}
+
+@media print {
+  .shopping-list-view h1,
+  .shopping-list-view h2 {
+    color: #000;
+  }
+
+  .shopping-items label {
+    box-shadow: none;
+    border-color: #ccc;
+  }
+}
+
 /* --- print --- */
 
 @media print {

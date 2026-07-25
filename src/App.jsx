@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadRecipes, saveRecipes, emptyRecipe, normalizeRecipe, newRecipeId } from "./storage";
 import { exportAllAsJson, parseImportedJson } from "./exportImport";
+import {
+  loadShoppingList,
+  saveShoppingList,
+  loadStaples,
+  saveStaples,
+  addRecipeToShoppingList,
+  clearShoppingList,
+} from "./shoppingList";
+import { loadMealPlan, saveMealPlan, assignRecipe, removeAssignment, clearMealPlan } from "./mealPlan";
 import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
 import RecipeForm from "./components/RecipeForm";
 import CookMode from "./components/CookMode";
 import QuickCapture from "./components/QuickCapture";
+import ShoppingList from "./components/ShoppingList";
+import MealPlanner from "./components/MealPlanner";
 import Toast from "./components/Toast";
 import "./App.css";
 
@@ -13,7 +24,7 @@ const UNDO_TIMEOUT = 6000;
 
 export default function App() {
   const [recipes, setRecipes] = useState(() => loadRecipes());
-  const [view, setView] = useState("list"); // list | detail | new | edit | cook | capture
+  const [view, setView] = useState("list"); // list | detail | new | edit | cook | capture | shopping | mealplan
   const [activeId, setActiveId] = useState(null);
   const [newDraft, setNewDraft] = useState(null);
   const [search, setSearch] = useState("");
@@ -22,8 +33,56 @@ export default function App() {
   const [sortBy, setSortBy] = useState("updated"); // updated | title | created
   const [importMessage, setImportMessage] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null); // { recipe, index }
+  const [shoppingList, setShoppingList] = useState(() => loadShoppingList());
+  const [staples, setStaples] = useState(() => loadStaples());
+  const [mealPlan, setMealPlan] = useState(() => loadMealPlan());
+  const [toastMessage, setToastMessage] = useState("");
   const fileInputRef = useRef(null);
   const undoTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
+
+  function persistShoppingList(next) {
+    setShoppingList(next);
+    saveShoppingList(next);
+  }
+
+  function persistStaples(next) {
+    setStaples(next);
+    saveStaples(next);
+  }
+
+  function persistMealPlan(next) {
+    setMealPlan(next);
+    saveMealPlan(next);
+  }
+
+  function showToast(message) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    toastTimerRef.current = setTimeout(() => setToastMessage(""), 3500);
+  }
+
+  function handleAddToShoppingList(recipe, servings) {
+    persistShoppingList(addRecipeToShoppingList(shoppingList, recipe, servings));
+    showToast(`Added "${recipe.title}" to the shopping list`);
+  }
+
+  function handleGenerateShoppingListFromPlan() {
+    let next = shoppingList;
+    let count = 0;
+    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].forEach((day) => {
+      mealPlan.days[day].forEach((a) => {
+        const recipe = recipes.find((r) => r.id === a.recipeId);
+        if (recipe) {
+          next = addRecipeToShoppingList(next, recipe, a.servings);
+          count++;
+        }
+      });
+    });
+    persistShoppingList(next);
+    setView("shopping");
+    if (count > 0) showToast(`Added ${count} recipe${count === 1 ? "" : "s"} from this week's plan to the shopping list`);
+  }
 
   function persist(next) {
     setRecipes(next);
@@ -181,6 +240,12 @@ export default function App() {
           🌿 Thymebook
         </h1>
         <div className="header-actions">
+          <button className="btn" onClick={() => setView("shopping")}>
+            🛒 Shopping list
+          </button>
+          <button className="btn" onClick={() => setView("mealplan")}>
+            📅 Meal plan
+          </button>
           <button className="btn" onClick={() => exportAllAsJson(recipes)}>
             Export backup
           </button>
@@ -236,6 +301,7 @@ export default function App() {
             onToggleFavorite={() => handleToggleFavorite(activeRecipe.id)}
             onDuplicate={() => handleDuplicate(activeRecipe)}
             onCookMode={() => setView("cook")}
+            onAddToShoppingList={(servings) => handleAddToShoppingList(activeRecipe, servings)}
           />
         )}
 
@@ -266,6 +332,30 @@ export default function App() {
         {view === "capture" && (
           <QuickCapture onParsed={handleParsedCapture} onCancel={() => setView("list")} />
         )}
+
+        {view === "shopping" && (
+          <ShoppingList
+            list={shoppingList}
+            onChange={persistShoppingList}
+            staples={staples}
+            onAddStaple={(s) => persistStaples([...staples, s])}
+            onRemoveStaple={(s) => persistStaples(staples.filter((x) => x !== s))}
+            onClear={() => persistShoppingList(clearShoppingList())}
+            onBack={() => setView("list")}
+          />
+        )}
+
+        {view === "mealplan" && (
+          <MealPlanner
+            plan={mealPlan}
+            recipes={recipes}
+            onAssign={(day, recipe, servings) => persistMealPlan(assignRecipe(mealPlan, day, recipe, servings))}
+            onRemove={(day, assignmentId) => persistMealPlan(removeAssignment(mealPlan, day, assignmentId))}
+            onClear={() => persistMealPlan(clearMealPlan())}
+            onGenerateShoppingList={handleGenerateShoppingListFromPlan}
+            onBack={() => setView("list")}
+          />
+        )}
       </main>
 
       {pendingDelete && (
@@ -278,6 +368,10 @@ export default function App() {
             setPendingDelete(null);
           }}
         />
+      )}
+
+      {!pendingDelete && toastMessage && (
+        <Toast message={toastMessage} onDismiss={() => setToastMessage("")} />
       )}
     </div>
   );
