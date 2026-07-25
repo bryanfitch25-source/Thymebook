@@ -35,7 +35,7 @@ export function saveMealPlan(plan) {
   localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
 }
 
-export function assignRecipe(plan, day, recipe, servings) {
+export function assignRecipe(plan, day, recipe, servings, mealMeta) {
   const baseServings = (() => {
     const n = parseFloat(recipe.servings);
     return Number.isFinite(n) && n > 0 ? n : 1;
@@ -45,8 +45,21 @@ export function assignRecipe(plan, day, recipe, servings) {
     recipeId: recipe.id,
     recipeTitle: recipe.title,
     servings: Number(servings) || baseServings,
+    ...(mealMeta ? { mealId: mealMeta.mealId, mealName: mealMeta.mealName } : {}),
   };
   return { ...plan, days: { ...plan.days, [day]: [...plan.days[day], assignment] } };
+}
+
+// Expands a saved Meal into individual per-recipe assignments on a single
+// day, tagged with the meal's id/name so the planner can show them grouped.
+export function assignMeal(plan, day, meal, recipes) {
+  let next = plan;
+  meal.recipes.forEach((entry) => {
+    const recipe = recipes.find((r) => r.id === entry.recipeId);
+    if (!recipe) return;
+    next = assignRecipe(next, day, recipe, entry.servings, { mealId: meal.id, mealName: meal.name });
+  });
+  return next;
 }
 
 export function removeAssignment(plan, day, assignmentId) {
