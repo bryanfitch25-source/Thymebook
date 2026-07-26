@@ -39,10 +39,23 @@ const ROSTER: Record<string, string[]> = {
   "Ashley Fitches": ["stacy@ashleyfitches.local", "rob@ashleyfitches.local"],
 };
 
+// Short, easy-to-type-on-a-phone passwords (word-word-number) rather than a
+// long random blob - this app has no sensitive data and only 8 trusted
+// family members will ever use these, so typability matters more than
+// entropy here.
+const WORDS = [
+  "apple", "berry", "cedar", "delta", "ember", "flint", "grove", "haven",
+  "ivory", "jolly", "kiwi", "lemon", "maple", "north", "olive", "peach",
+  "quilt", "river", "sunny", "tiger", "under", "vivid", "wheat", "amber",
+];
+
 function randomPassword(): string {
-  const bytes = new Uint8Array(16);
+  const bytes = new Uint8Array(3);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 20);
+  const word1 = WORDS[bytes[0] % WORDS.length];
+  const word2 = WORDS[bytes[1] % WORDS.length];
+  const number = bytes[2] % 100;
+  return `${word1}-${word2}-${number}`;
 }
 
 Deno.serve(async (req) => {
