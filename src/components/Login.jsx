@@ -15,6 +15,7 @@ const NAME_TO_EMAIL = {
   amy: "amy@morningsidefitches.local",
   stacy: "stacy@ashleyfitches.local",
   rob: "rob@ashleyfitches.local",
+  carmel: "carmel@maplehurstfitches.local",
 };
 
 // No public sign-up - all 8 accounts are created ahead of time via the

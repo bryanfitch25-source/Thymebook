@@ -37,6 +37,7 @@ const ROSTER: Record<string, string[]> = {
   "Phillips Family": ["jon@phillipsfamily.local", "lindsay@phillipsfamily.local"],
   "Morningside Fitches": ["bryan@morningsidefitches.local", "amy@morningsidefitches.local"],
   "Ashley Fitches": ["stacy@ashleyfitches.local", "rob@ashleyfitches.local"],
+  "Maplehurst Fitches": ["carmel@maplehurstfitches.local"],
 };
 
 // One shared, trivial password for every account - this app has no
