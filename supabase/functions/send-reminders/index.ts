@@ -48,6 +48,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 // case a future/different project setup does populate it after all.
 const PROJECT_SECRET_KEY = Deno.env.get("PROJECT_SECRET_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+// Temporary diagnostics for a deployment issue - only ever reveals the
+// first few characters of the key, never the whole thing. Remove once
+// reminders are confirmed working end-to-end.
+const DEBUG_INFO = {
+  keyPrefix: PROJECT_SECRET_KEY.slice(0, 12),
+  keyLength: PROJECT_SECRET_KEY.length,
+  usedFallbackEnvVar: !Deno.env.get("PROJECT_SECRET_KEY") && !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+};
+
 if (VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails("mailto:bryanfitch25@gmail.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
@@ -156,9 +165,16 @@ Deno.serve(async (_req) => {
     );
   } catch (err) {
     console.error("send-reminders failed:", err);
-    return new Response(JSON.stringify({ error: String(err?.message || err) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: String(err?.message || err),
+        errorDetails: { code: err?.code, details: err?.details, hint: err?.hint },
+        debug: DEBUG_INFO,
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 });
