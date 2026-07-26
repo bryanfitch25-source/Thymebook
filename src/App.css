@@ -388,6 +388,32 @@
   color: #fff;
 }
 
+.filters-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.filters-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filters-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .empty-state {
   color: var(--text);
   opacity: 0.7;
@@ -707,6 +733,75 @@
 @media (max-width: 520px) {
   .form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+/* --- list view: collapse secondary filters behind a toggle on mobile so
+   the recipe list is reachable without scrolling past 7+ stacked controls --- */
+@media (max-width: 640px) {
+  .list-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    flex: 1 1 100%;
+  }
+
+  .list-toolbar .btn {
+    flex: 1;
+  }
+
+  .filters-toggle {
+    display: inline-flex;
+    flex: 1;
+  }
+
+  .list-filters {
+    display: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 14px;
+  }
+
+  .list-filters.open {
+    display: block;
+  }
+
+  .list-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .list-controls-row .tag-filter,
+  .list-controls-row .surprise-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .sort-control {
+    justify-content: space-between;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .sort-control select {
+    flex: 1;
+    max-width: 60%;
+  }
+
+  .cuisine-select {
+    width: 100%;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .cuisine-select select {
+    flex: 1;
+    max-width: 60%;
   }
 }
 

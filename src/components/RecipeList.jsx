@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 function locationBadgeLabel(location) {
   if (location === "home") return "🏠 Home";
   if (location === "work") return "💼 Work";
@@ -78,6 +80,9 @@ export default function RecipeList({
   const activeCuisine = activeTag && cuisines.includes(activeTag) ? activeTag : "";
   const activeOtherTag = activeTag && other.includes(activeTag) ? activeTag : "";
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = [favoritesOnly, popularOnly, Boolean(locationFilter), Boolean(activeTag)].filter(Boolean).length;
+
   return (
     <div className="recipe-list-view">
       <div className="list-toolbar">
@@ -95,76 +100,85 @@ export default function RecipeList({
         <button className="btn" onClick={onCapture}>
           📷 Scan a recipe
         </button>
-      </div>
-
-      <div className="list-controls-row">
         <button
-          className={`tag-filter favorites-filter ${favoritesOnly ? "active" : ""}`}
-          onClick={onToggleFavoritesOnly}
-          aria-pressed={favoritesOnly}
+          className={`btn filters-toggle ${filtersOpen ? "active" : ""}`}
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
         >
-          ★ Favorites only
-        </button>
-
-        <button
-          className={`tag-filter favorites-filter ${popularOnly ? "active" : ""}`}
-          onClick={onTogglePopularOnly}
-          aria-pressed={popularOnly}
-          title="Recipes favorited by at least one of the 4 families"
-        >
-          🌟 Popular with any family
-        </button>
-
-        <label className="sort-control">
-          Location
-          <select value={locationFilter || ""} onChange={(e) => onLocationFilterChange(e.target.value || null)}>
-            <option value="">Anywhere</option>
-            <option value="home">🏠 Home</option>
-            <option value="work">💼 Work</option>
-          </select>
-        </label>
-
-        <label className="sort-control">
-          Sort
-          <select value={sortBy} onChange={(e) => onSortChange(e.target.value)}>
-            <option value="updated">Recently updated</option>
-            <option value="created">Recently added</option>
-            <option value="title">Title (A–Z)</option>
-          </select>
-        </label>
-
-        <button className="btn surprise-btn" onClick={onSurpriseMe} disabled={recipes.length === 0}>
-          🎲 Surprise me
+          ⚙ Filters{activeFilterCount > 0 && <span className="filters-count">{activeFilterCount}</span>}
         </button>
       </div>
 
-      {sortedCuisines.length > 0 && (
-        <label className="sort-control cuisine-select">
-          Cuisine
-          <select value={activeCuisine} onChange={(e) => onTagSelect(e.target.value || null)}>
-            <option value="">All cuisines</option>
-            {sortedCuisines.map((cuisine) => (
-              <option key={cuisine} value={cuisine}>
-                {cuisine}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <div className={`list-filters ${filtersOpen ? "open" : ""}`}>
+        <div className="list-controls-row">
+          <button
+            className={`tag-filter favorites-filter ${favoritesOnly ? "active" : ""}`}
+            onClick={onToggleFavoritesOnly}
+            aria-pressed={favoritesOnly}
+          >
+            ★ Favorites only
+          </button>
 
-      {sortedOther.length > 0 && (
-        <label className="sort-control cuisine-select">
-          Tag
-          <select value={activeOtherTag} onChange={(e) => onTagSelect(e.target.value || null)}>
-            <option value="">All tags</option>
-            {sortedOther.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+          <button
+            className={`tag-filter favorites-filter ${popularOnly ? "active" : ""}`}
+            onClick={onTogglePopularOnly}
+            aria-pressed={popularOnly}
+            title="Recipes favorited by at least one of the 4 families"
+          >
+            🌟 Popular with any family
+          </button>
+
+          <label className="sort-control">
+            Location
+            <select value={locationFilter || ""} onChange={(e) => onLocationFilterChange(e.target.value || null)}>
+              <option value="">Anywhere</option>
+              <option value="home">🏠 Home</option>
+              <option value="work">💼 Work</option>
+            </select>
+          </label>
+
+          <label className="sort-control">
+            Sort
+            <select value={sortBy} onChange={(e) => onSortChange(e.target.value)}>
+              <option value="updated">Recently updated</option>
+              <option value="created">Recently added</option>
+              <option value="title">Title (A–Z)</option>
+            </select>
+          </label>
+
+          <button className="btn surprise-btn" onClick={onSurpriseMe} disabled={recipes.length === 0}>
+            🎲 Surprise me
+          </button>
+        </div>
+
+        {sortedCuisines.length > 0 && (
+          <label className="sort-control cuisine-select">
+            Cuisine
+            <select value={activeCuisine} onChange={(e) => onTagSelect(e.target.value || null)}>
+              <option value="">All cuisines</option>
+              {sortedCuisines.map((cuisine) => (
+                <option key={cuisine} value={cuisine}>
+                  {cuisine}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {sortedOther.length > 0 && (
+          <label className="sort-control cuisine-select">
+            Tag
+            <select value={activeOtherTag} onChange={(e) => onTagSelect(e.target.value || null)}>
+              <option value="">All tags</option>
+              {sortedOther.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
 
       {recipes.length === 0 ? (
         <p className="empty-state">

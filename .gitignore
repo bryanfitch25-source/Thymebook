@@ -13,6 +13,7 @@ dist-ssr
 *.local
 tools/
 supabase/.temp/
+.claude/
 
 # Editor directories and files
 .vscode/*
