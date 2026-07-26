@@ -39,23 +39,13 @@ const ROSTER: Record<string, string[]> = {
   "Ashley Fitches": ["stacy@ashleyfitches.local", "rob@ashleyfitches.local"],
 };
 
-// Short, easy-to-type-on-a-phone passwords (word-word-number) rather than a
-// long random blob - this app has no sensitive data and only 8 trusted
-// family members will ever use these, so typability matters more than
-// entropy here.
-const WORDS = [
-  "apple", "berry", "cedar", "delta", "ember", "flint", "grove", "haven",
-  "ivory", "jolly", "kiwi", "lemon", "maple", "north", "olive", "peach",
-  "quilt", "river", "sunny", "tiger", "under", "vivid", "wheat", "amber",
-];
-
+// One shared, trivial password for every account - this app has no
+// sensitive data and only 8 trusted family members will ever log in, so
+// simplicity/typability was explicitly chosen over per-account randomness.
+// Padded to 7 characters ("01" suffix) since Supabase Auth's default
+// minimum password length is 6 and "Fitch" alone is only 5.
 function randomPassword(): string {
-  const bytes = new Uint8Array(3);
-  crypto.getRandomValues(bytes);
-  const word1 = WORDS[bytes[0] % WORDS.length];
-  const word2 = WORDS[bytes[1] % WORDS.length];
-  const number = bytes[2] % 100;
-  return `${word1}-${word2}-${number}`;
+  return "Fitch01";
 }
 
 Deno.serve(async (req) => {
