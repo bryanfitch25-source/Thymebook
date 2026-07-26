@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabaseClient";
+import { fetchFamily } from "./family";
+import { fetchFavoriteIds, subscribeFavorites, fetchPopularFavoriteIds, addFavorite, removeFavorite } from "./favorites";
 import {
   fetchRecipes,
   upsertRecipe,
@@ -81,6 +83,10 @@ export default function App() {
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState("");
 
+  const [familyId, setFamilyId] = useState(null);
+  const [familyName, setFamilyName] = useState("");
+  const [familyError, setFamilyError] = useState("");
+
   const [recipes, setRecipes] = useState([]);
   const [view, setView] = useState("list"); // list | detail | new | edit | cook | capture | shopping | mealplan | meals
   const [activeId, setActiveId] = useState(null);
@@ -88,6 +94,9 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [popularOnly, setPopularOnly] = useState(false);
+  const [popularIds, setPopularIds] = useState(null); // null = not fetched yet (lazy)
   const [locationFilter, setLocationFilter] = useState(null); // null | "home" | "work"
   const [sortBy, setSortBy] = useState("updated"); // updated | title | created
   const [importMessage, setImportMessage] = useState("");
@@ -132,6 +141,35 @@ export default function App() {
     supabase.auth.signOut();
   }
 
+  // --- Family (which household this signed-in user belongs to) -----------
+
+  useEffect(() => {
+    if (!session) {
+      setFamilyId(null);
+      setFamilyName("");
+      setFamilyError("");
+      return;
+    }
+    let cancelled = false;
+    setFamilyError("");
+    fetchFamily()
+      .then((fam) => {
+        if (cancelled) return;
+        if (!fam) {
+          setFamilyError("Your account isn't linked to a family yet — contact Bryan.");
+          return;
+        }
+        setFamilyId(fam.familyId);
+        setFamilyName(fam.familyName);
+      })
+      .catch((err) => {
+        if (!cancelled) showError("Couldn't determine your family", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   // --- Push notification support/registration -----------------------------
 
   useEffect(() => {
@@ -144,7 +182,7 @@ export default function App() {
   }, []);
 
   async function handleSubscribePush() {
-    const result = await subscribeToPush();
+    const result = await subscribeToPush(familyId);
     setPushPermission(notificationPermission());
     if (result.ok) {
       setPushSubscribed(true);
@@ -161,13 +199,21 @@ export default function App() {
   // --- Initial data load + realtime subscriptions ------------------------
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !familyId) return;
     let cancelled = false;
     setDataLoading(true);
     setDataError("");
 
-    Promise.all([fetchRecipes(), loadShoppingList(), loadStaples(), loadMealPlan(), loadMeals(), fetchReminders()])
-      .then(([r, sl, st, mp, ml, rem]) => {
+    Promise.all([
+      fetchRecipes(),
+      loadShoppingList(familyId),
+      loadStaples(familyId),
+      loadMealPlan(familyId),
+      loadMeals(familyId),
+      fetchReminders(),
+      fetchFavoriteIds(),
+    ])
+      .then(([r, sl, st, mp, ml, rem, fav]) => {
         if (cancelled) return;
         setRecipes(r);
         setShoppingList(sl);
@@ -175,6 +221,7 @@ export default function App() {
         setMealPlan(mp);
         setMeals(ml);
         setReminders(rem);
+        setFavoriteIds(fav);
       })
       .catch((err) => {
         if (!cancelled) showError("Couldn't load your data", err);
@@ -188,15 +235,23 @@ export default function App() {
         eventType === "DELETE" ? applyRecipeDelete(current, payload.id) : applyRecipeUpsert(current, payload)
       );
     });
-    const unsubShoppingList = subscribeShoppingList((data) => setShoppingList(data));
-    const unsubStaples = subscribeStaples((data) => setStaples(data));
-    const unsubMealPlan = subscribeMealPlan((data) => setMealPlan(data));
-    const unsubMeals = subscribeMeals((data) => setMeals(data));
+    const unsubShoppingList = subscribeShoppingList(familyId, (data) => setShoppingList(data));
+    const unsubStaples = subscribeStaples(familyId, (data) => setStaples(data));
+    const unsubMealPlan = subscribeMealPlan(familyId, (data) => setMealPlan(data));
+    const unsubMeals = subscribeMeals(familyId, (data) => setMeals(data));
     const unsubReminders = subscribeReminders((eventType, payload) => {
       setReminders((current) => {
         if (eventType === "DELETE") return current.filter((r) => r.id !== payload.id);
         const exists = current.some((r) => r.id === payload.id);
         return exists ? current.map((r) => (r.id === payload.id ? payload : r)) : [payload, ...current];
+      });
+    });
+    const unsubFavorites = subscribeFavorites((eventType, recipeId) => {
+      setFavoriteIds((current) => {
+        const next = new Set(current);
+        if (eventType === "DELETE") next.delete(recipeId);
+        else next.add(recipeId);
+        return next;
       });
     });
 
@@ -208,14 +263,15 @@ export default function App() {
       unsubMealPlan();
       unsubMeals();
       unsubReminders();
+      unsubFavorites();
     };
-  }, [session]);
+  }, [session, familyId]);
 
   // --- Meals --------------------------------------------------------------
 
   function persistMeals(next) {
     setMeals(next);
-    saveMeals(next).catch((err) => showError("Couldn't save meals", err));
+    saveMeals(next, familyId).catch((err) => showError("Couldn't save meals", err));
   }
 
   function handleCreateMeal(name, entries) {
@@ -248,20 +304,23 @@ export default function App() {
   function handleSetThawReminder(day, assignment, leadHours) {
     const remindAt = computeMealPlanReminderTime(day, leadHours);
     if (!remindAt) return;
-    createReminder({
-      recipeId: assignment.recipeId,
-      label: `Thaw ${assignment.recipeTitle} for ${day}`,
-      remindAt,
-      leadHours,
-      source: "mealplan",
-    })
+    createReminder(
+      {
+        recipeId: assignment.recipeId,
+        label: `Thaw ${assignment.recipeTitle} for ${day}`,
+        remindAt,
+        leadHours,
+        source: "mealplan",
+      },
+      familyId
+    )
       .then((reminder) => setReminders((current) => [reminder, ...current]))
       .catch((err) => showError("Couldn't create the thaw reminder", err));
     showToast(`Thaw reminder set for ${leadHours}h before ~6pm ${day}`);
   }
 
   function handleCreateStandaloneReminder({ label, recipeId, remindAt }) {
-    createReminder({ recipeId, label, remindAt, leadHours: 0, source: "manual" })
+    createReminder({ recipeId, label, remindAt, leadHours: 0, source: "manual" }, familyId)
       .then((reminder) => {
         setReminders((current) => [reminder, ...current]);
         showToast("Reminder created");
@@ -283,17 +342,17 @@ export default function App() {
 
   function persistShoppingList(next) {
     setShoppingList(next);
-    saveShoppingList(next).catch((err) => showError("Couldn't save the shopping list", err));
+    saveShoppingList(next, familyId).catch((err) => showError("Couldn't save the shopping list", err));
   }
 
   function persistStaples(next) {
     setStaples(next);
-    saveStaples(next).catch((err) => showError("Couldn't save staples", err));
+    saveStaples(next, familyId).catch((err) => showError("Couldn't save staples", err));
   }
 
   function persistMealPlan(next) {
     setMealPlan(next);
-    saveMealPlan(next).catch((err) => showError("Couldn't save the meal plan", err));
+    saveMealPlan(next, familyId).catch((err) => showError("Couldn't save the meal plan", err));
   }
 
   function handleAddToShoppingList(recipe, servings) {
@@ -338,9 +397,23 @@ export default function App() {
   }
 
   function handleToggleFavorite(id) {
-    const recipe = recipes.find((r) => r.id === id);
-    if (!recipe) return;
-    persistRecipeUpsert({ ...recipe, favorite: !recipe.favorite });
+    const wasFavorite = favoriteIds.has(id);
+    setFavoriteIds((current) => {
+      const next = new Set(current);
+      if (wasFavorite) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    const action = wasFavorite ? removeFavorite(id, familyId) : addFavorite(id, familyId);
+    action.catch((err) => {
+      showError("Couldn't update favorite", err);
+      setFavoriteIds((current) => {
+        const next = new Set(current);
+        if (wasFavorite) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    });
   }
 
   function handleDuplicate(recipe) {
@@ -349,7 +422,6 @@ export default function App() {
       ...recipe,
       id: newRecipeId(),
       title: `${recipe.title} (copy)`,
-      favorite: false,
       createdAt: now,
       updatedAt: now,
     };
@@ -416,7 +488,8 @@ export default function App() {
   const filteredRecipes = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = recipes.filter((r) => {
-      if (favoritesOnly && !r.favorite) return false;
+      if (favoritesOnly && !favoriteIds.has(r.id)) return false;
+      if (popularOnly && !(popularIds && popularIds.has(r.id))) return false;
       if (activeTag && !r.tags?.includes(activeTag)) return false;
       if (locationFilter && r.location !== locationFilter && r.location !== "both") return false;
       if (!q) return true;
@@ -433,7 +506,16 @@ export default function App() {
       sorted.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     }
     return sorted;
-  }, [recipes, search, activeTag, favoritesOnly, locationFilter, sortBy]);
+  }, [recipes, search, activeTag, favoritesOnly, favoriteIds, popularOnly, popularIds, locationFilter, sortBy]);
+
+  function handleTogglePopularOnly() {
+    if (!popularOnly && popularIds === null) {
+      fetchPopularFavoriteIds()
+        .then((ids) => setPopularIds(ids))
+        .catch((err) => showError("Couldn't load recipes popular with other families", err));
+    }
+    setPopularOnly((v) => !v);
+  }
 
   function handleSurpriseMe() {
     if (filteredRecipes.length === 0) return;
@@ -513,7 +595,11 @@ export default function App() {
     return <Login />;
   }
 
-  if (dataLoading || !shoppingList || !mealPlan) {
+  if (familyError) {
+    return <div className="app-loading-screen">{familyError}</div>;
+  }
+
+  if (!familyId || dataLoading || !shoppingList || !mealPlan) {
     return <div className="app-loading-screen">Loading your recipe book…</div>;
   }
 
@@ -521,9 +607,12 @@ export default function App() {
     <div className="app">
       <header className="app-header no-print">
         <div className="app-header-top">
-          <h1 onClick={() => goTo("list")} className="app-title">
-            🌿 Thymebook
-          </h1>
+          <div className="app-title-group">
+            <h1 onClick={() => goTo("list")} className="app-title">
+              🌿 Thymebook
+            </h1>
+            {familyName && <span className="family-badge no-print">Signed in as {familyName}</span>}
+          </div>
           <div className="app-menu-wrap">
             <button
               className="btn app-menu-btn"
@@ -608,6 +697,9 @@ export default function App() {
             allTags={allTags}
             favoritesOnly={favoritesOnly}
             onToggleFavoritesOnly={() => setFavoritesOnly((v) => !v)}
+            favoriteIds={favoriteIds}
+            popularOnly={popularOnly}
+            onTogglePopularOnly={handleTogglePopularOnly}
             locationFilter={locationFilter}
             onLocationFilterChange={setLocationFilter}
             sortBy={sortBy}
@@ -629,6 +721,7 @@ export default function App() {
         {view === "detail" && activeRecipe && (
           <RecipeDetail
             recipe={activeRecipe}
+            isFavorite={favoriteIds.has(activeRecipe.id)}
             onEdit={() => setView("edit")}
             onDelete={() => handleDelete(activeRecipe.id)}
             onBack={() => setView("list")}

@@ -9,7 +9,17 @@ function locationBadgeLabel(location) {
   return "";
 }
 
-export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggleFavorite, onDuplicate, onCookMode, onAddToShoppingList }) {
+export default function RecipeDetail({
+  recipe,
+  isFavorite,
+  onEdit,
+  onDelete,
+  onBack,
+  onToggleFavorite,
+  onDuplicate,
+  onCookMode,
+  onAddToShoppingList,
+}) {
   const baseServings = useMemo(() => {
     const n = parseFloat(recipe.servings);
     return Number.isFinite(n) && n > 0 ? n : 1;
@@ -40,11 +50,11 @@ export default function RecipeDetail({ recipe, onEdit, onDelete, onBack, onToggl
         {recipe.location && <span className={`location-badge location-${recipe.location}`}>{locationBadgeLabel(recipe.location)}</span>}
         {recipe.needsThaw && <span className="location-badge thaw-badge">🧊 Needs thaw</span>}
         <button
-          className={`star-toggle star-toggle-lg no-print ${recipe.favorite ? "active" : ""}`}
-          aria-label={recipe.favorite ? "Remove from favorites" : "Add to favorites"}
+          className={`star-toggle star-toggle-lg no-print ${isFavorite ? "active" : ""}`}
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
           onClick={onToggleFavorite}
         >
-          {recipe.favorite ? "★" : "☆"}
+          {isFavorite ? "★" : "☆"}
         </button>
       </div>
 

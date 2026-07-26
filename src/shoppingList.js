@@ -41,30 +41,30 @@ function normalizeList(parsed) {
   };
 }
 
-export async function loadShoppingList() {
-  const data = await fetchDocument(LIST_KEY, emptyShoppingList());
+export async function loadShoppingList(familyId) {
+  const data = await fetchDocument(LIST_KEY, familyId, emptyShoppingList());
   return normalizeList(data);
 }
 
-export async function saveShoppingList(list) {
-  await saveDocument(LIST_KEY, list);
+export async function saveShoppingList(list, familyId) {
+  await saveDocument(LIST_KEY, familyId, list);
 }
 
-export function subscribeShoppingList(onChange) {
-  return subscribeDocument(LIST_KEY, (data) => onChange(normalizeList(data)));
+export function subscribeShoppingList(familyId, onChange) {
+  return subscribeDocument(LIST_KEY, familyId, (data) => onChange(normalizeList(data)));
 }
 
-export async function loadStaples() {
-  const data = await fetchDocument(STAPLES_KEY, { items: DEFAULT_STAPLES.slice() });
+export async function loadStaples(familyId) {
+  const data = await fetchDocument(STAPLES_KEY, familyId, { items: DEFAULT_STAPLES.slice() });
   return Array.isArray(data?.items) ? data.items : DEFAULT_STAPLES.slice();
 }
 
-export async function saveStaples(staples) {
-  await saveDocument(STAPLES_KEY, { items: staples });
+export async function saveStaples(staples, familyId) {
+  await saveDocument(STAPLES_KEY, familyId, { items: staples });
 }
 
-export function subscribeStaples(onChange) {
-  return subscribeDocument(STAPLES_KEY, (data) => onChange(Array.isArray(data?.items) ? data.items : DEFAULT_STAPLES.slice()));
+export function subscribeStaples(familyId, onChange) {
+  return subscribeDocument(STAPLES_KEY, familyId, (data) => onChange(Array.isArray(data?.items) ? data.items : DEFAULT_STAPLES.slice()));
 }
 
 // Adds a recipe's ingredients (scaled to `servings`) as a new entry in the

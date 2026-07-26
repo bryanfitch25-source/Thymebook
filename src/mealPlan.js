@@ -26,17 +26,17 @@ function normalizePlan(parsed) {
   return plan;
 }
 
-export async function loadMealPlan() {
-  const data = await fetchDocument(PLAN_KEY, emptyMealPlan());
+export async function loadMealPlan(familyId) {
+  const data = await fetchDocument(PLAN_KEY, familyId, emptyMealPlan());
   return normalizePlan(data);
 }
 
-export async function saveMealPlan(plan) {
-  await saveDocument(PLAN_KEY, plan);
+export async function saveMealPlan(plan, familyId) {
+  await saveDocument(PLAN_KEY, familyId, plan);
 }
 
-export function subscribeMealPlan(onChange) {
-  return subscribeDocument(PLAN_KEY, (data) => onChange(normalizePlan(data)));
+export function subscribeMealPlan(familyId, onChange) {
+  return subscribeDocument(PLAN_KEY, familyId, (data) => onChange(normalizePlan(data)));
 }
 
 export function assignRecipe(plan, day, recipe, servings, mealMeta) {

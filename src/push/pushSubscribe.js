@@ -34,7 +34,7 @@ export async function registerServiceWorker() {
 // stores the subscription as its own row in `push_subscriptions`. Returns
 // { ok: true } on success, or { ok: false, reason } on any failure so the
 // caller can show an inline message instead of crashing.
-export async function subscribeToPush() {
+export async function subscribeToPush(familyId) {
   if (!isPushSupported()) {
     return { ok: false, reason: "not-supported" };
   }
@@ -63,6 +63,7 @@ export async function subscribeToPush() {
         endpoint: json.endpoint,
         p256dh: json.keys?.p256dh,
         auth: json.keys?.auth,
+        family_id: familyId,
       },
       { onConflict: "endpoint" }
     );

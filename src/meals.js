@@ -20,17 +20,17 @@ function normalizeMeals(parsed) {
     }));
 }
 
-export async function loadMeals() {
-  const data = await fetchDocument(MEALS_KEY, { items: [] });
+export async function loadMeals(familyId) {
+  const data = await fetchDocument(MEALS_KEY, familyId, { items: [] });
   return normalizeMeals(data);
 }
 
-export async function saveMeals(meals) {
-  await saveDocument(MEALS_KEY, { items: meals });
+export async function saveMeals(meals, familyId) {
+  await saveDocument(MEALS_KEY, familyId, { items: meals });
 }
 
-export function subscribeMeals(onChange) {
-  return subscribeDocument(MEALS_KEY, (data) => onChange(normalizeMeals(data)));
+export function subscribeMeals(familyId, onChange) {
+  return subscribeDocument(MEALS_KEY, familyId, (data) => onChange(normalizeMeals(data)));
 }
 
 export function createMeal(name, entries) {

@@ -44,7 +44,6 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
       instructions: form.instructions,
       notes: form.notes,
       photo: form.photo || null,
-      favorite: Boolean(form.favorite),
       location: form.location || "",
       needsThaw: Boolean(form.needsThaw),
       updatedAt: new Date().toISOString(),
@@ -151,11 +150,6 @@ export default function RecipeForm({ recipe, onSave, onCancel }) {
       <label>
         Notes
         <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={4} placeholder="Substitutions, tips, variations..." />
-      </label>
-
-      <label className="checkbox-label">
-        <input type="checkbox" checked={Boolean(form.favorite)} onChange={(e) => set("favorite", e.target.checked)} />
-        Mark as favorite
       </label>
 
       <label className="checkbox-label">

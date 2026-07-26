@@ -48,7 +48,7 @@ export async function fetchReminders() {
   return (data || []).map(rowToReminder);
 }
 
-export async function createReminder({ recipeId, label, remindAt, leadHours, source }) {
+export async function createReminder({ recipeId, label, remindAt, leadHours, source }, familyId) {
   const reminder = {
     id: newReminderId(),
     recipeId: recipeId || null,
@@ -59,7 +59,7 @@ export async function createReminder({ recipeId, label, remindAt, leadHours, sou
     status: "pending",
     createdAt: new Date().toISOString(),
   };
-  const { error } = await supabase.from(TABLE).insert(reminderToRow(reminder));
+  const { error } = await supabase.from(TABLE).insert({ ...reminderToRow(reminder), family_id: familyId });
   if (error) throw error;
   return reminder;
 }

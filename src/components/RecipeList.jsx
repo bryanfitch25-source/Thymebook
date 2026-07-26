@@ -59,6 +59,9 @@ export default function RecipeList({
   allTags,
   favoritesOnly,
   onToggleFavoritesOnly,
+  favoriteIds,
+  popularOnly,
+  onTogglePopularOnly,
   locationFilter,
   onLocationFilterChange,
   sortBy,
@@ -101,6 +104,15 @@ export default function RecipeList({
           aria-pressed={favoritesOnly}
         >
           ★ Favorites only
+        </button>
+
+        <button
+          className={`tag-filter favorites-filter ${popularOnly ? "active" : ""}`}
+          onClick={onTogglePopularOnly}
+          aria-pressed={popularOnly}
+          title="Recipes favorited by at least one of the 4 families"
+        >
+          🌟 Popular with any family
         </button>
 
         <label className="sort-control">
@@ -156,7 +168,7 @@ export default function RecipeList({
 
       {recipes.length === 0 ? (
         <p className="empty-state">
-          {search || activeTag || favoritesOnly ? "No recipes match your search." : "No recipes yet — add your first one."}
+          {search || activeTag || favoritesOnly || popularOnly ? "No recipes match your search." : "No recipes yet — add your first one."}
         </p>
       ) : (
         <ul className="recipe-cards">
@@ -169,14 +181,14 @@ export default function RecipeList({
                   <div className="recipe-card-badges">
                     {r.location && <span className={`location-badge location-${r.location}`}>{locationBadgeLabel(r.location)}</span>}
                     <button
-                      className={`star-toggle ${r.favorite ? "active" : ""}`}
-                      aria-label={r.favorite ? "Remove from favorites" : "Add to favorites"}
+                      className={`star-toggle ${favoriteIds?.has(r.id) ? "active" : ""}`}
+                      aria-label={favoriteIds?.has(r.id) ? "Remove from favorites" : "Add to favorites"}
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleFavorite(r.id);
                       }}
                     >
-                      {r.favorite ? "★" : "☆"}
+                      {favoriteIds?.has(r.id) ? "★" : "☆"}
                     </button>
                   </div>
                 </div>

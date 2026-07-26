@@ -23,6 +23,19 @@
   letter-spacing: -0.02em;
 }
 
+.app-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.family-badge {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.7;
+}
+
 .app-menu-wrap {
   position: relative;
 }
