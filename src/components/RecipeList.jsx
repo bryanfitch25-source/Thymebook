@@ -71,7 +71,9 @@ export default function RecipeList({
 }) {
   const { cuisines, other } = splitTags(allTags);
   const sortedCuisines = [...cuisines].sort((a, b) => a.localeCompare(b));
+  const sortedOther = [...other].sort((a, b) => a.localeCompare(b));
   const activeCuisine = activeTag && cuisines.includes(activeTag) ? activeTag : "";
+  const activeOtherTag = activeTag && other.includes(activeTag) ? activeTag : "";
 
   return (
     <div className="recipe-list-view">
@@ -101,22 +103,14 @@ export default function RecipeList({
           ★ Favorites only
         </button>
 
-        <div className="location-filter-group" role="group" aria-label="Filter by home or work">
-          {[
-            { value: null, label: "Anywhere" },
-            { value: "home", label: "🏠 Home" },
-            { value: "work", label: "💼 Work" },
-          ].map((opt) => (
-            <button
-              key={opt.label}
-              className={`tag-filter ${locationFilter === opt.value ? "active" : ""}`}
-              onClick={() => onLocationFilterChange(locationFilter === opt.value ? null : opt.value)}
-              aria-pressed={locationFilter === opt.value}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <label className="sort-control">
+          Location
+          <select value={locationFilter || ""} onChange={(e) => onLocationFilterChange(e.target.value || null)}>
+            <option value="">Anywhere</option>
+            <option value="home">🏠 Home</option>
+            <option value="work">💼 Work</option>
+          </select>
+        </label>
 
         <label className="sort-control">
           Sort
@@ -146,21 +140,18 @@ export default function RecipeList({
         </label>
       )}
 
-      {(other.length > 0 || activeCuisine) && (
-        <div className="tag-filter-row">
-          <button className={`tag-filter ${activeTag === null ? "active" : ""}`} onClick={() => onTagSelect(null)}>
-            All
-          </button>
-          {other.map((tag) => (
-            <button
-              key={tag}
-              className={`tag-filter ${activeTag === tag ? "active" : ""}`}
-              onClick={() => onTagSelect(activeTag === tag ? null : tag)}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
+      {sortedOther.length > 0 && (
+        <label className="sort-control cuisine-select">
+          Tag
+          <select value={activeOtherTag} onChange={(e) => onTagSelect(e.target.value || null)}>
+            <option value="">All tags</option>
+            {sortedOther.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
 
       {recipes.length === 0 ? (
