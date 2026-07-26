@@ -5,6 +5,51 @@ function locationBadgeLabel(location) {
   return "";
 }
 
+// Known cuisine names, used to split the flat tag list into a "Cuisine"
+// dropdown vs the remaining tag pills (meal-type, dietary, technique, etc).
+// Matched case-insensitively against each recipe's tags.
+const CUISINE_TAGS = new Set([
+  "african",
+  "american",
+  "asian",
+  "british",
+  "cajun",
+  "caribbean",
+  "chinese",
+  "creole",
+  "cuban",
+  "european",
+  "french",
+  "german",
+  "greek",
+  "hawaiian",
+  "indian",
+  "irish",
+  "italian",
+  "japanese",
+  "korean",
+  "mediterranean",
+  "mexican",
+  "middle-eastern",
+  "moroccan",
+  "southern",
+  "southwestern",
+  "spanish",
+  "tex-mex",
+  "thai",
+  "vietnamese",
+]);
+
+function splitTags(allTags) {
+  const cuisines = [];
+  const other = [];
+  allTags.forEach((tag) => {
+    if (CUISINE_TAGS.has(tag.toLowerCase())) cuisines.push(tag);
+    else other.push(tag);
+  });
+  return { cuisines, other };
+}
+
 export default function RecipeList({
   recipes,
   search,
@@ -24,6 +69,10 @@ export default function RecipeList({
   onToggleFavorite,
   onSurpriseMe,
 }) {
+  const { cuisines, other } = splitTags(allTags);
+  const sortedCuisines = [...cuisines].sort((a, b) => a.localeCompare(b));
+  const activeCuisine = activeTag && cuisines.includes(activeTag) ? activeTag : "";
+
   return (
     <div className="recipe-list-view">
       <div className="list-toolbar">
@@ -83,12 +132,26 @@ export default function RecipeList({
         </button>
       </div>
 
-      {allTags.length > 0 && (
+      {sortedCuisines.length > 0 && (
+        <label className="sort-control cuisine-select">
+          Cuisine
+          <select value={activeCuisine} onChange={(e) => onTagSelect(e.target.value || null)}>
+            <option value="">All cuisines</option>
+            {sortedCuisines.map((cuisine) => (
+              <option key={cuisine} value={cuisine}>
+                {cuisine}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {(other.length > 0 || activeCuisine) && (
         <div className="tag-filter-row">
           <button className={`tag-filter ${activeTag === null ? "active" : ""}`} onClick={() => onTagSelect(null)}>
             All
           </button>
-          {allTags.map((tag) => (
+          {other.map((tag) => (
             <button
               key={tag}
               className={`tag-filter ${activeTag === tag ? "active" : ""}`}

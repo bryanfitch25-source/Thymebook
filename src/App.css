@@ -336,6 +336,11 @@
   margin-left: auto;
 }
 
+.cuisine-select {
+  margin-left: 0;
+  margin-bottom: 10px;
+}
+
 .sort-control select {
   font: inherit;
   padding: 6px 10px;
