@@ -166,17 +166,19 @@ export default function RecipeList({
               <div className="recipe-card-body">
                 <div className="recipe-card-title-row">
                   <h3>{r.title}</h3>
-                  {r.location && <span className={`location-badge location-${r.location}`}>{locationBadgeLabel(r.location)}</span>}
-                  <button
-                    className={`star-toggle ${r.favorite ? "active" : ""}`}
-                    aria-label={r.favorite ? "Remove from favorites" : "Add to favorites"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite(r.id);
-                    }}
-                  >
-                    {r.favorite ? "★" : "☆"}
-                  </button>
+                  <div className="recipe-card-badges">
+                    {r.location && <span className={`location-badge location-${r.location}`}>{locationBadgeLabel(r.location)}</span>}
+                    <button
+                      className={`star-toggle ${r.favorite ? "active" : ""}`}
+                      aria-label={r.favorite ? "Remove from favorites" : "Add to favorites"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(r.id);
+                      }}
+                    >
+                      {r.favorite ? "★" : "☆"}
+                    </button>
+                  </div>
                 </div>
                 <div className="recipe-card-meta">
                   {r.cookTime && <span>{r.cookTime}</span>}
