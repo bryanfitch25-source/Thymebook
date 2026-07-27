@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { withRetry } from "./withRetry";
 
 // Generic helper for the `app_documents` table: a small set of named JSON
 // blobs (shopping_list, staples, meal_plan, meals) that mirror what used to
@@ -7,24 +8,6 @@ import { supabase } from "./supabaseClient";
 // "write the whole object" just like localStorage did, but now other
 // devices signed in as the same family get told about changes via realtime.
 const TABLE = "app_documents";
-
-// Mobile connections drop requests mid-flight often enough that a single
-// blip shouldn't surface as a scary error (Safari reports these as
-// `TypeError: Load failed`, Chrome as `TypeError: Failed to fetch` - both
-// are the browser giving up on the network layer, not a real app error).
-// Retries a couple of times with a short backoff before giving up for real.
-async function withRetry(fn, attempts = 3, delayMs = 500) {
-  let lastErr;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
-    }
-  }
-  throw lastErr;
-}
 
 export async function fetchDocument(key, familyId, fallback) {
   const { data, error } = await withRetry(() =>

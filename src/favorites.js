@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { withRetry } from "./withRetry";
 
 // `recipe_favorites` replaces the old single shared `recipes.favorite`
 // column: each family favorites recipes independently, tracked as rows of
@@ -9,18 +10,18 @@ const TABLE = "recipe_favorites";
 // `recipe_favorites` selects to the caller's own family already, so no
 // manual family_id filter is needed here.
 export async function fetchFavoriteIds() {
-  const { data, error } = await supabase.from(TABLE).select("recipe_id");
+  const { data, error } = await withRetry(() => supabase.from(TABLE).select("recipe_id"));
   if (error) throw error;
   return new Set((data || []).map((r) => r.recipe_id));
 }
 
 export async function addFavorite(recipeId, familyId) {
-  const { error } = await supabase.from(TABLE).insert({ recipe_id: recipeId, family_id: familyId });
+  const { error } = await withRetry(() => supabase.from(TABLE).insert({ recipe_id: recipeId, family_id: familyId }));
   if (error) throw error;
 }
 
 export async function removeFavorite(recipeId, familyId) {
-  const { error } = await supabase.from(TABLE).delete().eq("recipe_id", recipeId).eq("family_id", familyId);
+  const { error } = await withRetry(() => supabase.from(TABLE).delete().eq("recipe_id", recipeId).eq("family_id", familyId));
   if (error) throw error;
 }
 
@@ -49,7 +50,7 @@ export function subscribeFavorites(onChange) {
 // not a primary data path, so callers fetch it once/lazily rather than
 // subscribing to it live.
 export async function fetchPopularFavoriteIds() {
-  const { data, error } = await supabase.rpc("recipes_favorited_by_any");
+  const { data, error } = await withRetry(() => supabase.rpc("recipes_favorited_by_any"));
   if (error) throw error;
   return new Set((data || []).map((r) => r.recipe_id));
 }

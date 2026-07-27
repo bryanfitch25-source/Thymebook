@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { withRetry } from "./withRetry";
 
 const TABLE = "recipes";
 
@@ -84,24 +85,24 @@ function recipeToRow(recipe) {
 // --- Supabase-backed persistence ---------------------------------------------
 
 export async function fetchRecipes() {
-  const { data, error } = await supabase.from(TABLE).select("*").order("updated_at", { ascending: false });
+  const { data, error } = await withRetry(() => supabase.from(TABLE).select("*").order("updated_at", { ascending: false }));
   if (error) throw error;
   return (data || []).map(rowToRecipe);
 }
 
 export async function upsertRecipe(recipe) {
-  const { error } = await supabase.from(TABLE).upsert(recipeToRow(recipe), { onConflict: "id" });
+  const { error } = await withRetry(() => supabase.from(TABLE).upsert(recipeToRow(recipe), { onConflict: "id" }));
   if (error) throw error;
 }
 
 export async function upsertRecipes(recipes) {
   if (!recipes.length) return;
-  const { error } = await supabase.from(TABLE).upsert(recipes.map(recipeToRow), { onConflict: "id" });
+  const { error } = await withRetry(() => supabase.from(TABLE).upsert(recipes.map(recipeToRow), { onConflict: "id" }));
   if (error) throw error;
 }
 
 export async function deleteRecipeRemote(id) {
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  const { error } = await withRetry(() => supabase.from(TABLE).delete().eq("id", id));
   if (error) throw error;
 }
 

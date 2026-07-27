@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { withRetry } from "./withRetry";
 
 // Resolves the signed-in user's family: which family they belong to (from
 // `family_members`, admin-provisioned - see supabase/functions/provision-families)
@@ -11,7 +12,9 @@ import { supabase } from "./supabaseClient";
 // callers should treat it as a real, user-facing error state rather than
 // silently rendering with an undefined family).
 export async function fetchFamily() {
-  const { data, error } = await supabase.from("family_members").select("family_id, families(name)").maybeSingle();
+  const { data, error } = await withRetry(() =>
+    supabase.from("family_members").select("family_id, families(name)").maybeSingle()
+  );
   if (error) throw error;
   if (!data) return null;
   return { familyId: data.family_id, familyName: data.families?.name || "" };

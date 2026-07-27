@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { withRetry } from "./withRetry";
 import { DAYS } from "./mealPlan";
 
 const TABLE = "reminders";
@@ -43,7 +44,7 @@ function reminderToRow(reminder) {
 }
 
 export async function fetchReminders() {
-  const { data, error } = await supabase.from(TABLE).select("*").order("remind_at", { ascending: true });
+  const { data, error } = await withRetry(() => supabase.from(TABLE).select("*").order("remind_at", { ascending: true }));
   if (error) throw error;
   return (data || []).map(rowToReminder);
 }
@@ -59,18 +60,18 @@ export async function createReminder({ recipeId, label, remindAt, leadHours, sou
     status: "pending",
     createdAt: new Date().toISOString(),
   };
-  const { error } = await supabase.from(TABLE).insert({ ...reminderToRow(reminder), family_id: familyId });
+  const { error } = await withRetry(() => supabase.from(TABLE).insert({ ...reminderToRow(reminder), family_id: familyId }));
   if (error) throw error;
   return reminder;
 }
 
 export async function cancelReminder(id) {
-  const { error } = await supabase.from(TABLE).update({ status: "cancelled" }).eq("id", id);
+  const { error } = await withRetry(() => supabase.from(TABLE).update({ status: "cancelled" }).eq("id", id));
   if (error) throw error;
 }
 
 export async function deleteReminder(id) {
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  const { error } = await withRetry(() => supabase.from(TABLE).delete().eq("id", id));
   if (error) throw error;
 }
 
