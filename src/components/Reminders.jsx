@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { LEAD_HOUR_OPTIONS } from "../reminders";
+import RecipePicker from "./RecipePicker";
 
 function formatDateTime(iso) {
   const d = new Date(iso);
@@ -114,14 +115,7 @@ export default function Reminders({
           </label>
           <label>
             Link to a recipe <span className="hint">(optional)</span>
-            <select value={recipeId} onChange={(e) => setRecipeId(e.target.value)}>
-              <option value="">— None —</option>
-              {sortedRecipes.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
-                </option>
-              ))}
-            </select>
+            <RecipePicker recipes={sortedRecipes} value={recipeId} onChange={setRecipeId} includeNoneOption noneLabel="— None —" />
           </label>
           <button type="submit" className="btn btn-primary">
             Create reminder

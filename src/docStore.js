@@ -8,29 +8,44 @@ import { supabase } from "./supabaseClient";
 // devices signed in as the same family get told about changes via realtime.
 const TABLE = "app_documents";
 
+// Mobile connections drop requests mid-flight often enough that a single
+// blip shouldn't surface as a scary error (Safari reports these as
+// `TypeError: Load failed`, Chrome as `TypeError: Failed to fetch` - both
+// are the browser giving up on the network layer, not a real app error).
+// Retries a couple of times with a short backoff before giving up for real.
+async function withRetry(fn, attempts = 3, delayMs = 500) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 export async function fetchDocument(key, familyId, fallback) {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("data")
-    .eq("key", key)
-    .eq("family_id", familyId)
-    .maybeSingle();
+  const { data, error } = await withRetry(() =>
+    supabase.from(TABLE).select("data").eq("key", key).eq("family_id", familyId).maybeSingle()
+  );
   if (error) throw error;
   if (!data) {
     // Document row doesn't exist yet for this family (e.g. brand-new
     // family, or this document was never written) - fall back to the
     // in-app default and try to seed the row so future writes have
     // somewhere to land.
-    await supabase.from(TABLE).upsert({ key, family_id: familyId, data: fallback }, { onConflict: "key,family_id" });
+    await withRetry(() => supabase.from(TABLE).upsert({ key, family_id: familyId, data: fallback }, { onConflict: "key,family_id" }));
     return fallback;
   }
   return data.data;
 }
 
 export async function saveDocument(key, familyId, data) {
-  const { error } = await supabase
-    .from(TABLE)
-    .upsert({ key, family_id: familyId, data, updated_at: new Date().toISOString() }, { onConflict: "key,family_id" });
+  const { error } = await withRetry(() =>
+    supabase.from(TABLE).upsert({ key, family_id: familyId, data, updated_at: new Date().toISOString() }, { onConflict: "key,family_id" })
+  );
   if (error) throw error;
 }
 

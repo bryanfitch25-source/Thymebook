@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DAYS } from "../mealPlan";
 import { LEAD_HOUR_OPTIONS } from "../reminders";
+import RecipePicker from "./RecipePicker";
 
 export default function MealPlanner({ plan, recipes, onAssign, onRemove, onClear, onGenerateShoppingList, onSetThawReminder, onBack }) {
   const [pendingDay, setPendingDay] = useState(null);
@@ -112,13 +113,7 @@ export default function MealPlanner({ plan, recipes, onAssign, onRemove, onClear
 
               {pendingDay === day ? (
                 <div className="planner-add-form no-print">
-                  <select value={pendingRecipeId} onChange={(e) => handleRecipeChange(e.target.value)}>
-                    {sortedRecipes.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.title}
-                      </option>
-                    ))}
-                  </select>
+                  <RecipePicker recipes={sortedRecipes} value={pendingRecipeId} onChange={handleRecipeChange} />
                   <input
                     type="number"
                     min="1"

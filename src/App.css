@@ -1254,6 +1254,68 @@
   width: 100%;
 }
 
+.planner-add-form .recipe-picker {
+  width: 100%;
+}
+
+/* --- recipe picker: searchable stand-in for a plain <select> --- */
+
+.recipe-picker {
+  position: relative;
+  width: 100%;
+}
+
+.recipe-picker-input {
+  font: inherit;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-h);
+}
+
+.recipe-picker-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.recipe-picker-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 100;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-hover);
+}
+
+.recipe-picker-option {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.recipe-picker-option:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.recipe-picker-empty {
+  padding: 8px 10px;
+  font-size: 13px;
+  opacity: 0.6;
+}
+
 .planner-add-actions {
   display: flex;
   gap: 8px;
@@ -1541,7 +1603,8 @@
 }
 
 .reminder-form input,
-.reminder-form select {
+.reminder-form select,
+.reminder-form .recipe-picker-input {
   font: inherit;
   padding: 9px 12px;
   border-radius: 9px;

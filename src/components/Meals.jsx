@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DAYS } from "../mealPlan";
+import RecipePicker from "./RecipePicker";
 
 export default function Meals({ meals, recipes, onCreate, onDelete, onAddToShoppingList, onAssignToDay }) {
   const [mode, setMode] = useState("list"); // list | create | detail
@@ -85,13 +86,7 @@ export default function Meals({ meals, recipes, onCreate, onDelete, onAddToShopp
 
         {sortedRecipes.length > 0 ? (
           <div className="planner-add-form meal-add-form">
-            <select value={pendingRecipeId} onChange={(e) => setPendingRecipeId(e.target.value)}>
-              {sortedRecipes.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
-                </option>
-              ))}
-            </select>
+            <RecipePicker recipes={sortedRecipes} value={pendingRecipeId} onChange={setPendingRecipeId} />
             <button type="button" className="btn" onClick={addPicked}>
               + Add recipe
             </button>
