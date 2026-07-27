@@ -596,7 +596,14 @@ export default function App() {
   }
 
   if (familyError) {
-    return <div className="app-loading-screen">{familyError}</div>;
+    return (
+      <div className="app-loading-screen">
+        <p>{familyError}</p>
+        <button className="btn" onClick={handleSignOut}>
+          Sign out
+        </button>
+      </div>
+    );
   }
 
   if (!familyId || dataLoading || !shoppingList || !mealPlan) {
